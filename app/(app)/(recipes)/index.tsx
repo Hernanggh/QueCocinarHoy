@@ -6,7 +6,6 @@ import {
   FlatList,
   ScrollView,
   Pressable,
-  Alert,
   Platform,
   useWindowDimensions,
 } from 'react-native';
@@ -116,23 +115,10 @@ export default function RecipesScreen() {
 
   const handleWebDelete = (recipeId: string, photoUrl: string | null) => {
     const recipe = recipes.find((r) => r.id === recipeId);
-    Alert.alert(
-      'Eliminar receta',
-      `¿Eliminar "${recipe?.name}"? Esta acción no se puede deshacer.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            if (photoUrl) await deletePhoto(photoUrl);
-            await supabase.from('recipes').delete().eq('id', recipeId);
-            setSelectedRecipeId(null);
-            refetch();
-          },
-        },
-      ]
-    );
+    if (!(window as any).confirm(`¿Eliminar "${recipe?.name}"? Esta acción no se puede deshacer.`)) return;
+    setSelectedRecipeId(null);
+    if (photoUrl) deletePhoto(photoUrl);
+    supabase.from('recipes').delete().eq('id', recipeId).then(() => refetch());
   };
 
   const showSidebar = Platform.OS === 'web' && width >= 700;
@@ -360,8 +346,9 @@ export default function RecipesScreen() {
             }}
           />
 
-          {/* Tarjeta */}
-          <View
+          {/* Tarjeta — Pressable con onPress vacío actúa como barrera de eventos */}
+          <Pressable
+            onPress={() => {}}
             style={{
               width: '92%',
               maxWidth: 720,
@@ -439,7 +426,7 @@ export default function RecipesScreen() {
                 onSaucePress={(id) => setSelectedRecipeId(id)}
               />
             </ScrollView>
-          </View>
+          </Pressable>
         </View>
       )}
     </>

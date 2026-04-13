@@ -53,5 +53,9 @@ export function useEvents() {
     return () => { supabase.removeChannel(channel); };
   }, [user, fetchEvents]);
 
-  return { events, loading, refetch: fetchEvents };
+  const removeEvent = useCallback((id: string) => {
+    setEvents((prev) => prev.filter((e) => e.id !== id));
+  }, []);
+
+  return { events, loading, refetch: fetchEvents, removeEvent };
 }

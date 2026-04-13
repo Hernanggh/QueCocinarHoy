@@ -30,6 +30,7 @@ export type Recipe = {
   id: string;
   user_id: string;
   name: string;
+  description: string | null;
   photo_url: string | null;
   reference_url: string | null;
   base_servings: number;
@@ -50,6 +51,8 @@ export type Event = {
   user_id: string;
   name: string;
   event_date: string;
+  event_time: string | null;
+  location: string | null;
   guest_count: number;
   notes: string | null;
   created_at: string;

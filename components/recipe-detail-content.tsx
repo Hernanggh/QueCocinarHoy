@@ -107,6 +107,21 @@ export function RecipeDetailContent({ recipe, onEdit, onDelete, onSaucePress }: 
           )}
         </View>
 
+        {/* Descripción */}
+        {recipe.description ? (
+          <Text
+            selectable
+            style={{
+              fontSize: 15,
+              color: pc('secondaryLabel'),
+              lineHeight: 22,
+              fontStyle: 'italic',
+            }}
+          >
+            {recipe.description}
+          </Text>
+        ) : null}
+
         {/* Ingredientes */}
         {recipe.ingredients.length > 0 && (
           <View>

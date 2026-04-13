@@ -38,6 +38,7 @@ export default function RecipeFormScreen() {
 
   // Form state
   const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
   const [difficulty, setDifficulty] = useState<DifficultyLevel>('facil');
   const [baseServings, setBaseServings] = useState('4');
   const [prepTime, setPrepTime] = useState('');
@@ -69,6 +70,7 @@ export default function RecipeFormScreen() {
     const recipe = recipes.find((r) => r.id === recipeId);
     if (!recipe) return;
     setName(recipe.name);
+    setDescription(recipe.description ?? '');
     setDifficulty(recipe.difficulty);
     setBaseServings(String(recipe.base_servings));
     setPrepTime(recipe.prep_time_min ? String(recipe.prep_time_min) : '');
@@ -139,6 +141,7 @@ export default function RecipeFormScreen() {
       const recipeData = {
         user_id: user.id,
         name: name.trim(),
+        description: description.trim() || null,
         difficulty,
         base_servings: parseInt(baseServings) || 4,
         prep_time_min: parseInt(prepTime) || 0,
@@ -647,6 +650,17 @@ export default function RecipeFormScreen() {
                   />
                 </View>
                 <View>
+                  {sectionLabel('Descripción para el menú')}
+                  <TextInput
+                    value={description}
+                    onChangeText={setDescription}
+                    placeholder="Breve descripción para el menú..."
+                    multiline
+                    maxLength={200}
+                    style={[inputStyle, { minHeight: 64 }]}
+                  />
+                </View>
+                <View>
                   {sectionLabel('Dificultad')}
                   {difficultySelector}
                 </View>
@@ -665,6 +679,18 @@ export default function RecipeFormScreen() {
                 onChangeText={setName}
                 placeholder="Nombre de la receta"
                 style={inputStyle}
+              />
+            </View>
+
+            <View>
+              {sectionLabel('Descripción para el menú')}
+              <TextInput
+                value={description}
+                onChangeText={setDescription}
+                placeholder="Breve descripción para el menú..."
+                multiline
+                maxLength={200}
+                style={[inputStyle, { minHeight: 64 }]}
               />
             </View>
 
