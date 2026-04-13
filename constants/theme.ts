@@ -27,6 +27,18 @@ export const Colors = {
   },
 };
 
+export const DifficultyColors = {
+  facil: '#34C759',   // iOS systemGreen
+  medio: '#FF9500',  // iOS systemOrange
+  dificil: '#FF3B30', // iOS systemRed
+};
+
+export const DifficultyLabels = {
+  facil: 'Fácil',
+  medio: 'Medio',
+  dificil: 'Difícil',
+};
+
 export const Fonts = Platform.select({
   ios: {
     /** iOS `UIFontDescriptorSystemDesignDefault` */
