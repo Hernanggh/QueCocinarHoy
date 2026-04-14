@@ -16,6 +16,7 @@ import { useLookupData } from '@/hooks/use-lookup-data';
 import { deletePhoto } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import { RecipeCard } from '@/components/recipe-card';
+import { shareRecipeAsImage } from '@/lib/recipe-share';
 import { RecipeDetailContent } from '@/components/recipe-detail-content';
 import { LoadingScreen } from '@/components/loading-screen';
 import { EmptyState } from '@/components/empty-state';
@@ -448,6 +449,16 @@ export default function RecipesScreen() {
                   hitSlop={8}
                 >
                   <IconSymbol name="trash" size={20} color={pc('systemRed')} />
+                </Pressable>
+                <Pressable
+                  onPress={() =>
+                    shareRecipeAsImage(selectedRecipe).catch((e) =>
+                      console.error('[shareRecipe] top-level error:', e)
+                    )
+                  }
+                  hitSlop={8}
+                >
+                  <IconSymbol name="square.and.arrow.up" size={20} color={pc('systemOrange')} />
                 </Pressable>
                 <Pressable onPress={() => setSelectedRecipeId(null)} hitSlop={8}>
                   <IconSymbol name="xmark" size={20} color={pc('secondaryLabel')} />

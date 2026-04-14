@@ -1,6 +1,6 @@
 import { pc } from '@/lib/colors';
 import { useState, useCallback } from 'react';
-import { View, Text, FlatList, Pressable, ScrollView, Platform } from 'react-native';
+import { View, Text, FlatList, Pressable, ScrollView, Platform, useWindowDimensions } from 'react-native';
 import { useRouter, Stack, useFocusEffect } from 'expo-router';
 import { generateAndShareEventPDF } from '@/lib/event-pdf';
 import Animated, { FadeInUp } from 'react-native-reanimated';
@@ -12,16 +12,42 @@ import { ShoppingListSheet } from '@/components/shopping-list-sheet';
 import { LoadingScreen } from '@/components/loading-screen';
 import { EmptyState } from '@/components/empty-state';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import type { Event } from '@/types/app';
 
 const isWeb = Platform.OS === 'web';
+
+type Period = 'all' | 'upcoming' | 'past';
+
+const PERIOD_OPTIONS: { id: Period; name: string }[] = [
+  { id: 'all', name: 'Todos' },
+  { id: 'upcoming', name: 'Próximos' },
+  { id: 'past', name: 'Anteriores' },
+];
+
+function filterEvents(events: Event[], period: Period): Event[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const filtered = events.filter((e) => {
+    const d = new Date(e.event_date + 'T12:00:00');
+    if (period === 'upcoming') return d >= today;
+    if (period === 'past') return d < today;
+    return true;
+  });
+
+  // Próximos: más cercano primero; Anteriores y Todos: más reciente primero
+  return period === 'upcoming' ? [...filtered].reverse() : filtered;
+}
 
 export default function EventsScreen() {
   const router = useRouter();
   const { events, loading, refetch, removeEvent } = useEvents();
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [sheetVisible, setSheetVisible] = useState(false);
+  const [period, setPeriod] = useState<Period>('all');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const { width } = useWindowDimensions();
 
-  // Refetch cuando la pantalla vuelve al foco (ej. al regresar tras eliminar)
   useFocusEffect(
     useCallback(() => {
       refetch();
@@ -51,49 +77,254 @@ export default function EventsScreen() {
     refetch();
   };
 
+  const showSidebar = Platform.OS === 'web' && width >= 700;
+  const sidebarTopPad = Platform.OS === 'web' ? 120 : 20;
+  const gridWidth = showSidebar ? width - 220 : width;
+  const numCols = Platform.OS === 'web' ? 3 : 2;
+  const gapTotal = 12 * (numCols - 1);
+  const cardWidth = (gridWidth - 32 - gapTotal) / numCols;
+
+  const filtered = filterEvents(events, period);
+
+  const periodLabel = period === 'all' ? null : PERIOD_OPTIONS.find((p) => p.id === period)?.name;
+
+  // Sidebar section component (inline)
+  const sidebarSection = (
+    <View style={{ marginBottom: 24 }}>
+      <Text
+        style={{
+          fontSize: 11,
+          fontWeight: '700',
+          color: pc('secondaryLabel'),
+          textTransform: 'uppercase',
+          letterSpacing: 0.8,
+          paddingHorizontal: 16,
+          marginBottom: 6,
+        }}
+      >
+        Filtro
+      </Text>
+      {PERIOD_OPTIONS.map((opt) => {
+        const selected = period === opt.id;
+        return (
+          <Pressable
+            key={opt.id}
+            onPress={() => setPeriod(opt.id)}
+            style={({ pressed }) => ({
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingHorizontal: 16,
+              paddingVertical: 9,
+              backgroundColor: selected ? '#FF950018' : 'transparent',
+              opacity: pressed ? 0.7 : 1,
+            })}
+          >
+            {selected && (
+              <View
+                style={{
+                  width: 3,
+                  height: 18,
+                  backgroundColor: '#FF9500',
+                  borderRadius: 2,
+                  marginRight: 10,
+                }}
+              />
+            )}
+            <Text
+              style={{
+                fontSize: 15,
+                color: selected ? '#FF9500' : pc('label'),
+                fontWeight: selected ? '600' : '400',
+                marginLeft: selected ? 0 : 13,
+              }}
+            >
+              {opt.name}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+
   if (loading) return <LoadingScreen />;
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          headerRight: () => (
-            <Pressable
-              onPress={() => router.push('/event/new' as any)}
-              hitSlop={8}
+      <Stack.Screen options={{}} />
+      <View style={{ flex: 1, flexDirection: 'row' }}>
+        {/* Sidebar (solo en web ancho) */}
+        {showSidebar && (
+          <View
+            style={{
+              width: 220,
+              borderRightWidth: 0.5,
+              borderRightColor: pc('separator'),
+              backgroundColor: pc('systemBackground'),
+            }}
+          >
+            <ScrollView
+              contentInsetAdjustmentBehavior="automatic"
+              contentContainerStyle={{ paddingTop: sidebarTopPad, paddingBottom: 32 }}
             >
-              <IconSymbol name="plus" size={24} color={pc('systemOrange')} />
-            </Pressable>
-          ),
-        }}
-      />
-      <FlatList
-        data={events}
-        keyExtractor={(item) => item.id}
-        contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 32 }}
-        ListEmptyComponent={
-          <EmptyState
-            icon="calendar"
-            title="Sin eventos aún"
-            subtitle="Toca el + para planear tu primera cena"
-          />
-        }
-        renderItem={({ item, index }) => (
-          <Animated.View entering={FadeInUp.duration(400).delay(index * 60)}>
-            <Pressable
-              onPress={() =>
-                isWeb
-                  ? setSelectedEventId(item.id)
-                  : router.push(`/event/${item.id}` as any)
-              }
-              style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
-            >
-              <EventCard event={item} />
-            </Pressable>
-          </Animated.View>
+              <View style={{ marginBottom: 16 }}>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: '700',
+                    color: pc('secondaryLabel'),
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.8,
+                    paddingHorizontal: 16,
+                    marginBottom: 6,
+                  }}
+                >
+                  Eventos
+                </Text>
+                <Pressable
+                  onPress={() => router.push('/event/new' as any)}
+                  style={({ pressed }) => ({
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 8,
+                    paddingHorizontal: 16,
+                    paddingVertical: 10,
+                    opacity: pressed ? 0.7 : 1,
+                  })}
+                >
+                  <IconSymbol name="plus.circle.fill" size={18} color={pc('systemOrange')} />
+                  <Text style={{ fontSize: 15, color: pc('systemOrange'), fontWeight: '600' }}>
+                    Nuevo evento
+                  </Text>
+                </Pressable>
+              </View>
+              {sidebarSection}
+            </ScrollView>
+          </View>
         )}
-      />
+
+        {/* Grid de eventos */}
+        <FlatList
+          data={filtered}
+          keyExtractor={(item) => item.id}
+          numColumns={numCols}
+          key={`grid-${numCols}`}
+          columnWrapperStyle={{ gap: 12 }}
+          contentInsetAdjustmentBehavior="automatic"
+          contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 32 }}
+          style={{ flex: 1 }}
+          ListHeaderComponent={
+            !showSidebar ? (
+              <View style={{ marginBottom: 8 }}>
+                {/* Botón Nuevo evento — solo móvil */}
+                <Pressable
+                  onPress={() => router.push('/event/new' as any)}
+                  style={({ pressed }) => ({
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    backgroundColor: pc('systemOrange'),
+                    borderRadius: 14,
+                    borderCurve: 'continuous',
+                    paddingVertical: 13,
+                    marginBottom: 12,
+                    opacity: pressed ? 0.85 : 1,
+                  })}
+                >
+                  <IconSymbol name="plus" size={18} color="#fff" />
+                  <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>
+                    Nuevo evento
+                  </Text>
+                </Pressable>
+
+                {/* Filtro colapsable */}
+                <Pressable
+                  onPress={() => setFilterOpen((v) => !v)}
+                  style={({ pressed }) => ({
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 8,
+                    paddingHorizontal: 4,
+                    paddingVertical: 10,
+                    opacity: pressed ? 0.7 : 1,
+                  })}
+                >
+                  <IconSymbol
+                    name="line.3.horizontal.decrease"
+                    size={18}
+                    color={pc('systemOrange')}
+                  />
+                  <Text
+                    style={{
+                      flex: 1,
+                      fontSize: 15,
+                      color: period !== 'all' ? pc('systemOrange') : pc('secondaryLabel'),
+                      fontWeight: period !== 'all' ? '600' : '400',
+                    }}
+                  >
+                    {periodLabel ?? 'Filtrar'}
+                  </Text>
+                  {period !== 'all' && (
+                    <View
+                      style={{
+                        backgroundColor: pc('systemOrange'),
+                        borderRadius: 10,
+                        paddingHorizontal: 7,
+                        paddingVertical: 2,
+                      }}
+                    >
+                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>1</Text>
+                    </View>
+                  )}
+                  <IconSymbol
+                    name={filterOpen ? 'chevron.up' : 'chevron.down'}
+                    size={14}
+                    color={pc('secondaryLabel')}
+                  />
+                </Pressable>
+
+                {filterOpen && (
+                  <View
+                    style={{
+                      backgroundColor: pc('secondarySystemBackground'),
+                      borderRadius: 14,
+                      borderCurve: 'continuous',
+                      paddingVertical: 12,
+                      marginBottom: 4,
+                    }}
+                  >
+                    {sidebarSection}
+                  </View>
+                )}
+              </View>
+            ) : null
+          }
+          ListEmptyComponent={
+            <EmptyState
+              icon="calendar"
+              title={period === 'upcoming' ? 'Sin eventos próximos' : period === 'past' ? 'Sin eventos anteriores' : 'Sin eventos aún'}
+              subtitle={period === 'all' ? 'Toca el + para planear tu primera cena' : 'Cambia el filtro para ver otros eventos'}
+            />
+          }
+          renderItem={({ item, index }) => (
+            <Animated.View
+              style={{ width: cardWidth }}
+              entering={FadeInUp.duration(400).delay(index * 60)}
+            >
+              <Pressable
+                onPress={() =>
+                  isWeb
+                    ? setSelectedEventId(item.id)
+                    : router.push(`/event/${item.id}` as any)
+                }
+                style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
+              >
+                <EventCard event={item} photoHeight={cardWidth} />
+              </Pressable>
+            </Animated.View>
+          )}
+        />
+      </View>
 
       {/* Modal de detalle en web */}
       {isWeb && selectedEvent && (
@@ -109,7 +340,6 @@ export default function EventsScreen() {
             zIndex: 200,
           }}
         >
-          {/* Backdrop */}
           <Pressable
             onPress={() => setSelectedEventId(null)}
             style={{
@@ -121,8 +351,6 @@ export default function EventsScreen() {
               backgroundColor: 'rgba(0,0,0,0.45)',
             }}
           />
-
-          {/* Tarjeta — Pressable con onPress vacío actúa como barrera de eventos (evita bubbling al backdrop) */}
           <Pressable
             onPress={() => {}}
             style={{
@@ -137,7 +365,6 @@ export default function EventsScreen() {
               boxShadow: '0 8px 40px rgba(0,0,0,0.18)',
             } as any}
           >
-            {/* Header */}
             <View
               style={{
                 flexDirection: 'row',
@@ -150,12 +377,7 @@ export default function EventsScreen() {
               }}
             >
               <Text
-                style={{
-                  flex: 1,
-                  fontSize: 18,
-                  fontWeight: '700',
-                  color: pc('label'),
-                }}
+                style={{ flex: 1, fontSize: 18, fontWeight: '700', color: pc('label') }}
                 numberOfLines={1}
               >
                 {selectedEvent.name}
@@ -163,10 +385,7 @@ export default function EventsScreen() {
               <Pressable
                 onPress={() => {
                   setSelectedEventId(null);
-                  router.push({
-                    pathname: '/event/new' as any,
-                    params: { eventId: selectedEvent.id },
-                  });
+                  router.push({ pathname: '/event/new' as any, params: { eventId: selectedEvent.id } });
                 }}
                 hitSlop={8}
               >
@@ -183,16 +402,12 @@ export default function EventsScreen() {
               </Pressable>
             </View>
 
-            {/* Contenido scrollable */}
             <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
               <EventDetailContent
                 event={selectedEvent}
                 onEdit={() => {
                   setSelectedEventId(null);
-                  router.push({
-                    pathname: '/event/new' as any,
-                    params: { eventId: selectedEvent.id },
-                  });
+                  router.push({ pathname: '/event/new' as any, params: { eventId: selectedEvent.id } });
                 }}
                 onDelete={() => handleWebDelete(selectedEvent.id, selectedEvent.name)}
                 onRecipePress={(recipeId) => {
@@ -208,7 +423,6 @@ export default function EventsScreen() {
         </View>
       )}
 
-      {/* ShoppingListSheet — funciona tanto en mobile como en el modal web */}
       {selectedEvent && (
         <ShoppingListSheet
           event={selectedEvent}

@@ -1,6 +1,6 @@
-import { View, Text, Pressable, Alert, ScrollView } from 'react-native';
+import { View, Text, Pressable, Alert, ScrollView, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { pc } from '@/lib/colors';
 import { useRecipes } from '@/hooks/use-recipes';
 import { deletePhoto } from '@/lib/storage';
@@ -9,6 +9,8 @@ import { LoadingScreen } from '@/components/loading-screen';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { RecipeDetailContent } from '@/components/recipe-detail-content';
 import { AddToEventSheet } from '@/components/add-to-event-sheet';
+import { ShareableRecipeCard } from '@/components/shareable-recipe-card';
+import { shareRecipeAsImage } from '@/lib/recipe-share';
 import type { Recipe } from '@/types/app';
 
 export default function RecipeDetailScreen() {
@@ -22,6 +24,16 @@ export default function RecipeDetailScreen() {
   const parentRecipe = recipe?.parent_recipe_id
     ? recipes.find((r) => r.id === recipe.parent_recipe_id)
     : null;
+
+  const shareCardRef = useRef<View>(null);
+
+  const handleShare = async () => {
+    if (!recipe) return;
+    await shareRecipeAsImage(recipe, async () => {
+      const { captureRef } = await import('react-native-view-shot');
+      return captureRef(shareCardRef, { format: 'png', quality: 1 });
+    });
+  };
 
   const handleDelete = () => {
     Alert.alert('Eliminar receta', `¿Eliminar "${recipe?.name}"? Esta acción no se puede deshacer.`, [
@@ -89,8 +101,20 @@ export default function RecipeDetailScreen() {
             })
           }
           onAddToEvent={() => setAddToEventRecipe(recipe)}
+          onShare={handleShare}
         />
       </ScrollView>
+
+      {/* Tarjeta off-screen para captura de imagen (solo native) */}
+      {Platform.OS !== 'web' && (
+        <View
+          ref={shareCardRef}
+          collapsable={false}
+          style={{ position: 'absolute', left: -2000, top: 0 }}
+        >
+          <ShareableRecipeCard recipe={recipe} />
+        </View>
+      )}
 
       {/* Overlay selector de evento */}
       {addToEventRecipe && (

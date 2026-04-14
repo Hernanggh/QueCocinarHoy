@@ -43,6 +43,7 @@ const MAPPING = {
   'mappin': 'location-on',
   'arrow.turn.up.left': 'subdirectory-arrow-left',
   'chevron.up': 'expand-less',
+  'square.and.arrow.up': 'ios-share',
 } as IconMapping;
 
 /**

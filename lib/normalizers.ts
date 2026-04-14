@@ -77,18 +77,7 @@ export function normalizeEvents(raw: any[]): Event[] {
     recipes: (e.event_recipes ?? [])
       .map((er: any) => {
         if (!er.recipes) return null;
-        const recipe = normalizeRecipe(er.recipes);
-        if (er.variation_id && er.variation) {
-          const varIngredients = (er.variation.ingredients ?? []).sort(
-            (a: any, b: any) => a.order_index - b.order_index
-          );
-          return {
-            ...recipe,
-            ingredients: [...recipe.ingredients, ...varIngredients],
-            variation_name: er.variation.name,
-          };
-        }
-        return recipe;
+        return normalizeRecipe(er.recipes);
       })
       .filter(Boolean) as Recipe[],
   }));

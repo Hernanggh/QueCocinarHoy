@@ -12,12 +12,13 @@ type Props = {
   onDelete: () => void;
   onSaucePress: (id: string) => void;
   onAddToEvent?: () => void;
+  onShare?: () => void;
   onAddVariation?: () => void;
   onVariationPress?: (variation: Recipe) => void;
   parentName?: string | null;
 };
 
-export function RecipeDetailContent({ recipe, onEdit, onDelete, onSaucePress, onAddToEvent, onAddVariation, onVariationPress, parentName }: Props) {
+export function RecipeDetailContent({ recipe, onEdit, onDelete, onSaucePress, onAddToEvent, onShare, onAddVariation, onVariationPress, parentName }: Props) {
   const photoUrl = getPublicUrl(recipe.photo_url ?? null);
   const totalTime = recipe.prep_time_min + recipe.cook_time_min;
 
@@ -61,29 +62,55 @@ export function RecipeDetailContent({ recipe, onEdit, onDelete, onSaucePress, on
         </View>
       )}
 
-      {onAddToEvent && (
-        <Pressable
-          onPress={onAddToEvent}
-          style={({ pressed }) => ({
-            marginHorizontal: 16,
-            marginTop: 12,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            paddingVertical: 12,
-            borderRadius: 14,
-            borderCurve: 'continuous',
-            backgroundColor: '#FF950015',
-            opacity: pressed ? 0.7 : 1,
-          })}
-        >
-          <IconSymbol name="calendar.badge.plus" size={16} color="#FF9500" />
-          <Text style={{ fontSize: 15, color: '#FF9500', fontWeight: '600' }}>
-            Agregar a evento
-          </Text>
-        </Pressable>
-      )}
+      <View style={{ flexDirection: 'row', gap: 8, marginHorizontal: 16, marginTop: 12 }}>
+        {onAddToEvent && (
+          <Pressable
+            onPress={onAddToEvent}
+            style={({ pressed }) => ({
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              paddingVertical: 12,
+              borderRadius: 14,
+              borderCurve: 'continuous',
+              backgroundColor: '#FF950015',
+              opacity: pressed ? 0.7 : 1,
+            })}
+          >
+            <IconSymbol name="calendar.badge.plus" size={16} color="#FF9500" />
+            <Text style={{ fontSize: 15, color: '#FF9500', fontWeight: '600' }}>
+              Agregar a evento
+            </Text>
+          </Pressable>
+        )}
+        {onShare && (
+          <Pressable
+            onPress={onShare}
+            style={({ pressed }) => ({
+              flex: onAddToEvent ? 0 : 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              paddingVertical: 12,
+              paddingHorizontal: onAddToEvent ? 16 : 0,
+              borderRadius: 14,
+              borderCurve: 'continuous',
+              backgroundColor: '#FF950015',
+              opacity: pressed ? 0.7 : 1,
+            })}
+          >
+            <IconSymbol name="square.and.arrow.up" size={16} color="#FF9500" />
+            {!onAddToEvent && (
+              <Text style={{ fontSize: 15, color: '#FF9500', fontWeight: '600' }}>
+                Compartir receta
+              </Text>
+            )}
+          </Pressable>
+        )}
+      </View>
 
       <View style={{ padding: 16, gap: 20 }}>
         {/* Meta info */}

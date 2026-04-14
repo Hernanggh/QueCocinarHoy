@@ -74,6 +74,7 @@ export function RecipeCard({ recipe, photoHeight = 180 }: { recipe: Recipe; phot
             {recipe.name}
           </Text>
         </LinearGradient>
+
       </View>
 
       {/* Metadata */}
