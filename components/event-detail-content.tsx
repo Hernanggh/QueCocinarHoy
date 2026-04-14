@@ -68,6 +68,7 @@ type Props = {
   onEdit: () => void;
   onDelete: () => void;
   onRecipePress: (id: string) => void;
+  onRemoveRecipe?: (recipeId: string) => void;
   onShoppingList: () => void;
   onSharePDF?: () => void;
 };
@@ -77,6 +78,7 @@ export function EventDetailContent({
   onEdit,
   onDelete,
   onRecipePress,
+  onRemoveRecipe,
   onShoppingList,
   onSharePDF,
 }: Props) {
@@ -172,7 +174,19 @@ export function EventDetailContent({
                     {recipe.ingredients.length} ingredientes · {recipe.base_servings} porciones base
                   </Text>
                 </View>
-                <IconSymbol name="chevron.right" size={16} color={pc('systemGray3')} />
+                {onRemoveRecipe ? (
+                  <Pressable
+                    onPress={(e) => {
+                      if (Platform.OS === 'web') (e as any).stopPropagation?.();
+                      onRemoveRecipe(recipe.id);
+                    }}
+                    hitSlop={8}
+                  >
+                    <IconSymbol name="xmark.circle.fill" size={22} color={pc('systemGray3')} />
+                  </Pressable>
+                ) : (
+                  <IconSymbol name="chevron.right" size={16} color={pc('systemGray3')} />
+                )}
               </Pressable>
             ))}
           </View>

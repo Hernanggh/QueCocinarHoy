@@ -20,6 +20,8 @@ import { RecipeDetailContent } from '@/components/recipe-detail-content';
 import { LoadingScreen } from '@/components/loading-screen';
 import { EmptyState } from '@/components/empty-state';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { AddToEventSheet } from '@/components/add-to-event-sheet';
+import type { Recipe } from '@/types/app';
 
 const isWeb = Platform.OS === 'web';
 
@@ -100,6 +102,7 @@ export default function RecipesScreen() {
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [selectedMethod, setSelectedMethod] = useState<number | null>(null);
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
+  const [addToEventRecipe, setAddToEventRecipe] = useState<Recipe | null>(null);
   const { width } = useWindowDimensions();
 
   // Refetch cuando la pantalla vuelve al foco (ej. al regresar tras eliminar)
@@ -149,20 +152,7 @@ export default function RecipesScreen() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          headerRight: isWeb
-            ? () => (
-                <Pressable
-                  onPress={() => router.push('/recipe/new' as any)}
-                  hitSlop={8}
-                >
-                  <IconSymbol name="plus" size={24} color={pc('systemOrange')} />
-                </Pressable>
-              )
-            : undefined,
-        }}
-      />
+      <Stack.Screen options={{}} />
       <View style={{ flex: 1, flexDirection: 'row' }}>
         {/* Sidebar (solo en web ancho) */}
         {showSidebar && (
@@ -178,6 +168,37 @@ export default function RecipesScreen() {
               contentInsetAdjustmentBehavior="automatic"
               contentContainerStyle={{ paddingTop: sidebarTopPad, paddingBottom: 32 }}
             >
+              <View style={{ marginBottom: 16 }}>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: '700',
+                    color: pc('secondaryLabel'),
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.8,
+                    paddingHorizontal: 16,
+                    marginBottom: 6,
+                  }}
+                >
+                  Recetas
+                </Text>
+                <Pressable
+                  onPress={() => router.push('/recipe/new' as any)}
+                  style={({ pressed }) => ({
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 8,
+                    paddingHorizontal: 16,
+                    paddingVertical: 10,
+                    opacity: pressed ? 0.7 : 1,
+                  })}
+                >
+                  <IconSymbol name="plus.circle.fill" size={18} color={pc('systemOrange')} />
+                  <Text style={{ fontSize: 15, color: pc('systemOrange'), fontWeight: '600' }}>
+                    Nueva receta
+                  </Text>
+                </Pressable>
+              </View>
               <SidebarSection
                 title="Categorías"
                 items={categories}
@@ -390,48 +411,63 @@ export default function RecipesScreen() {
             {/* Header */}
             <View
               style={{
-                flexDirection: 'row',
-                alignItems: 'center',
                 paddingHorizontal: 20,
-                paddingVertical: 16,
+                paddingVertical: 14,
                 borderBottomWidth: 0.5,
                 borderBottomColor: pc('separator'),
-                gap: 12,
+                gap: 8,
               }}
             >
-              <Text
-                style={{
-                  flex: 1,
-                  fontSize: 18,
-                  fontWeight: '700',
-                  color: pc('label'),
-                }}
-                numberOfLines={1}
-              >
-                {selectedRecipe.name}
-              </Text>
+              {/* Título + acciones */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <Text
+                  style={{ flex: 1, fontSize: 18, fontWeight: '700', color: pc('label') }}
+                  numberOfLines={1}
+                >
+                  {selectedRecipe.name}
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    setSelectedRecipeId(null);
+                    router.push({
+                      pathname: '/recipe/new' as any,
+                      params: { recipeId: selectedRecipe.id },
+                    });
+                  }}
+                  hitSlop={8}
+                >
+                  <IconSymbol name="pencil" size={20} color={pc('systemOrange')} />
+                </Pressable>
+                <Pressable
+                  onPress={() => handleWebDelete(selectedRecipe.id, selectedRecipe.photo_url)}
+                  hitSlop={8}
+                >
+                  <IconSymbol name="trash" size={20} color={pc('systemRed')} />
+                </Pressable>
+                <Pressable onPress={() => setSelectedRecipeId(null)} hitSlop={8}>
+                  <IconSymbol name="xmark" size={20} color={pc('secondaryLabel')} />
+                </Pressable>
+              </View>
+              {/* Botón Agregar a evento */}
               <Pressable
-                onPress={() => {
-                  setSelectedRecipeId(null);
-                  router.push({
-                    pathname: '/recipe/new' as any,
-                    params: { recipeId: selectedRecipe.id },
-                  });
-                }}
-                hitSlop={8}
+                onPress={() => setAddToEventRecipe(selectedRecipe)}
+                style={({ pressed }) => ({
+                  alignSelf: 'flex-start',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 20,
+                  borderCurve: 'continuous',
+                  backgroundColor: '#FF950015',
+                  opacity: pressed ? 0.7 : 1,
+                })}
               >
-                <IconSymbol name="pencil" size={20} color={pc('systemOrange')} />
-              </Pressable>
-              <Pressable
-                onPress={() =>
-                  handleWebDelete(selectedRecipe.id, selectedRecipe.photo_url)
-                }
-                hitSlop={8}
-              >
-                <IconSymbol name="trash" size={20} color={pc('systemRed')} />
-              </Pressable>
-              <Pressable onPress={() => setSelectedRecipeId(null)} hitSlop={8}>
-                <IconSymbol name="xmark" size={20} color={pc('secondaryLabel')} />
+                <IconSymbol name="calendar.badge.plus" size={14} color="#FF9500" />
+                <Text style={{ fontSize: 13, color: '#FF9500', fontWeight: '600' }}>
+                  Agregar a evento
+                </Text>
               </Pressable>
             </View>
 
@@ -452,6 +488,34 @@ export default function RecipesScreen() {
                 onSaucePress={(id) => setSelectedRecipeId(id)}
               />
             </ScrollView>
+
+            {/* Overlay selector de evento */}
+            {addToEventRecipe && (
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 0, left: 0, right: 0, bottom: 0,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  backgroundColor: 'rgba(0,0,0,0.35)',
+                  zIndex: 10,
+                  padding: 20,
+                }}
+              >
+                <Pressable
+                  style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+                  onPress={() => setAddToEventRecipe(null)}
+                />
+                <AddToEventSheet
+                  recipe={addToEventRecipe}
+                  onClose={() => setAddToEventRecipe(null)}
+                  onSelect={() => {
+                    setAddToEventRecipe(null);
+                    setSelectedRecipeId(null);
+                  }}
+                />
+              </View>
+            )}
           </Pressable>
         </View>
       )}

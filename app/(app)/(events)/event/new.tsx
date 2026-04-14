@@ -12,112 +12,11 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Image } from 'expo-image';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/auth';
 import { useEvents } from '@/hooks/use-events';
-import { useRecipes } from '@/hooks/use-recipes';
-import { getPublicUrl } from '@/lib/storage';
-import { IconSymbol } from '@/components/ui/icon-symbol';
 
 const isWeb = Platform.OS === 'web';
-
-function RecipePickerRow({
-  recipe,
-  selected,
-  onToggle,
-}: {
-  recipe: any;
-  selected: boolean;
-  onToggle: () => void;
-}) {
-  const photoUrl = getPublicUrl(recipe.photo_url ?? null);
-
-  return (
-    <Pressable
-      onPress={onToggle}
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        padding: 12,
-        borderRadius: 10,
-        borderCurve: 'continuous' as const,
-        backgroundColor: selected
-          ? pc('systemOrange') + '18'
-          : isWeb
-          ? pc('tertiarySystemBackground')
-          : pc('secondarySystemBackground'),
-      }}
-    >
-      {/* Thumbnail */}
-      {photoUrl ? (
-        isWeb ? (
-          <img
-            src={photoUrl}
-            style={{
-              width: 44,
-              height: 44,
-              objectFit: 'cover',
-              borderRadius: 8,
-              flexShrink: 0,
-            } as any}
-          />
-        ) : (
-          <Image
-            source={{ uri: photoUrl }}
-            style={{ width: 44, height: 44, borderRadius: 8, flexShrink: 0 }}
-            contentFit="cover"
-          />
-        )
-      ) : (
-        <View
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 8,
-            backgroundColor: pc('systemFill'),
-            justifyContent: 'center',
-            alignItems: 'center',
-            flexShrink: 0,
-          }}
-        >
-          <IconSymbol name="fork.knife" size={18} color={pc('systemGray3')} />
-        </View>
-      )}
-
-      {/* Info */}
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text style={{ fontSize: 15, color: pc('label'), fontWeight: '500' }}>
-          {recipe.name}
-        </Text>
-        {recipe.categories.length > 0 && (
-          <Text style={{ fontSize: 13, color: pc('secondaryLabel') }}>
-            {recipe.categories.map((c: any) => c.name).join(' · ')}
-          </Text>
-        )}
-      </View>
-
-      {/* Checkbox */}
-      <View
-        style={{
-          width: 22,
-          height: 22,
-          borderRadius: 6,
-          borderWidth: 2,
-          borderColor: selected ? pc('systemOrange') : pc('systemGray3'),
-          backgroundColor: selected ? pc('systemOrange') : 'transparent',
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-      >
-        {selected && (
-          <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>✓</Text>
-        )}
-      </View>
-    </Pressable>
-  );
-}
 
 export default function EventFormScreen() {
   const router = useRouter();
@@ -125,7 +24,6 @@ export default function EventFormScreen() {
   const isEdit = Boolean(eventId);
   const { user } = useAuth();
   const { events } = useEvents();
-  const { recipes } = useRecipes();
 
   const [name, setName] = useState('');
   const [eventDate, setEventDate] = useState(new Date());
@@ -133,7 +31,6 @@ export default function EventFormScreen() {
   const [location, setLocation] = useState('');
   const [guestCount, setGuestCount] = useState('4');
   const [notes, setNotes] = useState('');
-  const [selectedRecipeIds, setSelectedRecipeIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -146,14 +43,7 @@ export default function EventFormScreen() {
     setLocation(event.location ?? '');
     setGuestCount(String(event.guest_count));
     setNotes(event.notes ?? '');
-    setSelectedRecipeIds(event.recipes.map((r) => r.id));
   }, [isEdit, eventId, events]);
-
-  const toggleRecipe = (id: string) => {
-    setSelectedRecipeIds((prev) =>
-      prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]
-    );
-  };
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -173,8 +63,6 @@ export default function EventFormScreen() {
         notes: notes.trim() || null,
       };
 
-      let finalEventId = eventId ?? '';
-
       if (isEdit && eventId) {
         await supabase.from('events').update(eventData).eq('id', eventId);
       } else {
@@ -184,14 +72,6 @@ export default function EventFormScreen() {
           .select('id')
           .single();
         if (error) throw error;
-        finalEventId = data.id;
-      }
-
-      await supabase.from('event_recipes').delete().eq('event_id', finalEventId);
-      if (selectedRecipeIds.length > 0) {
-        await supabase.from('event_recipes').insert(
-          selectedRecipeIds.map((recipe_id) => ({ event_id: finalEventId, recipe_id }))
-        );
       }
 
       router.back();
@@ -350,33 +230,6 @@ export default function EventFormScreen() {
           multiline
           style={[inputStyle, { minHeight: 70 }]}
         />
-      </View>
-
-      {/* Selector de recetas */}
-      <View>
-        {sectionLabel(`Recetas (${selectedRecipeIds.length} seleccionadas)`)}
-        <View style={{ gap: 8 }}>
-          {recipes.map((recipe) => (
-            <RecipePickerRow
-              key={recipe.id}
-              recipe={recipe}
-              selected={selectedRecipeIds.includes(recipe.id)}
-              onToggle={() => toggleRecipe(recipe.id)}
-            />
-          ))}
-          {recipes.length === 0 && (
-            <Text
-              style={{
-                fontSize: 15,
-                color: pc('secondaryLabel'),
-                textAlign: 'center',
-                padding: 16,
-              }}
-            >
-              Aún no tienes recetas. Agrégalas en la pestaña Recetas.
-            </Text>
-          )}
-        </View>
       </View>
 
       {/* Guardar */}

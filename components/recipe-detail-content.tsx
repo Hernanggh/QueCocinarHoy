@@ -11,9 +11,10 @@ type Props = {
   onEdit: () => void;
   onDelete: () => void;
   onSaucePress: (id: string) => void;
+  onAddToEvent?: () => void;
 };
 
-export function RecipeDetailContent({ recipe, onEdit, onDelete, onSaucePress }: Props) {
+export function RecipeDetailContent({ recipe, onEdit, onDelete, onSaucePress, onAddToEvent }: Props) {
   const photoUrl = getPublicUrl(recipe.photo_url ?? null);
   const totalTime = recipe.prep_time_min + recipe.cook_time_min;
 
@@ -46,6 +47,30 @@ export function RecipeDetailContent({ recipe, onEdit, onDelete, onSaucePress }: 
             contentFit="cover"
           />
         )
+      )}
+
+      {onAddToEvent && (
+        <Pressable
+          onPress={onAddToEvent}
+          style={({ pressed }) => ({
+            marginHorizontal: 16,
+            marginTop: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            paddingVertical: 12,
+            borderRadius: 14,
+            borderCurve: 'continuous',
+            backgroundColor: '#FF950015',
+            opacity: pressed ? 0.7 : 1,
+          })}
+        >
+          <IconSymbol name="calendar.badge.plus" size={16} color="#FF9500" />
+          <Text style={{ fontSize: 15, color: '#FF9500', fontWeight: '600' }}>
+            Agregar a evento
+          </Text>
+        </Pressable>
       )}
 
       <View style={{ padding: 16, gap: 20 }}>

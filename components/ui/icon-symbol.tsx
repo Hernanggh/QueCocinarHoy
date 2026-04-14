@@ -36,6 +36,11 @@ const MAPPING = {
   'flame.fill': 'local-fire-department',
   'clock': 'access-time',
   'person.2.fill': 'group',
+  'calendar.badge.plus': 'today',
+  'plus.circle.fill': 'add-circle',
+  'line.3.horizontal.decrease': 'filter-list',
+  'doc.fill': 'description',
+  'mappin': 'location-on',
 } as IconMapping;
 
 /**

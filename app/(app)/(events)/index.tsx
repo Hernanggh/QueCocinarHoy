@@ -32,14 +32,23 @@ export default function EventsScreen() {
     ? events.find((e) => e.id === selectedEventId) ?? null
     : null;
 
-  const handleWebDelete = (eventId: string, eventName: string) => {
-    // window.confirm es nativo del navegador y no depende del polyfill de Alert
+  const handleWebDelete = async (eventId: string, eventName: string) => {
     if (!(window as any).confirm(`¿Eliminar "${eventName}"? Esta acción no se puede deshacer.`)) return;
     removeEvent(eventId);
     setSelectedEventId(null);
-    supabase.from('event_recipes').delete().eq('event_id', eventId).then(() => {
-      supabase.from('events').delete().eq('id', eventId);
-    });
+    try {
+      await supabase.from('event_recipes').delete().eq('event_id', eventId);
+      const { error } = await supabase.from('events').delete().eq('id', eventId);
+      if (error) throw error;
+    } catch (e: any) {
+      console.error('[handleWebDelete]', e);
+      refetch();
+    }
+  };
+
+  const handleRemoveRecipe = async (recipeId: string, eventId: string) => {
+    await supabase.from('event_recipes').delete().eq('event_id', eventId).eq('recipe_id', recipeId);
+    refetch();
   };
 
   if (loading) return <LoadingScreen />;
@@ -190,6 +199,7 @@ export default function EventsScreen() {
                   setSelectedEventId(null);
                   router.push(`/recipe/${recipeId}` as any);
                 }}
+                onRemoveRecipe={(recipeId) => handleRemoveRecipe(recipeId, selectedEvent.id)}
                 onShoppingList={() => setSheetVisible(true)}
                 onSharePDF={() => generateAndShareEventPDF(selectedEvent)}
               />

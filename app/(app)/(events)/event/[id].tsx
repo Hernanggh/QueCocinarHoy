@@ -18,6 +18,10 @@ export default function EventDetailScreen() {
 
   const event = events.find((e) => e.id === id);
 
+  const handleRemoveRecipe = async (recipeId: string) => {
+    await supabase.from('event_recipes').delete().eq('event_id', id).eq('recipe_id', recipeId);
+  };
+
   const handleDelete = () => {
     Alert.alert('Eliminar evento', `¿Eliminar "${event?.name}"?`, [
       { text: 'Cancelar', style: 'cancel' },
@@ -72,6 +76,7 @@ export default function EventDetailScreen() {
           }
           onDelete={handleDelete}
           onRecipePress={(recipeId) => router.push(`/recipe/${recipeId}` as any)}
+          onRemoveRecipe={handleRemoveRecipe}
           onShoppingList={() => setSheetVisible(true)}
           onSharePDF={() => generateAndShareEventPDF(event)}
         />
