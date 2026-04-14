@@ -124,7 +124,9 @@ export default function RecipesScreen() {
   const showSidebar = Platform.OS === 'web' && width >= 700;
   const sidebarTopPad = Platform.OS === 'web' ? 120 : 20;
   const gridWidth = showSidebar ? width - 220 : width;
-  const cardWidth = (gridWidth - 32 - 12) / 2; // 32 = padding horizontal (16×2), 12 = gap entre columnas
+  const numCols = Platform.OS === 'web' ? 3 : 2;
+  const gapTotal = 12 * (numCols - 1);
+  const cardWidth = (gridWidth - 32 - gapTotal) / numCols;
   const [filterOpen, setFilterOpen] = useState(false);
 
   const activeFilterCount = (selectedCategory ? 1 : 0) + (selectedMethod ? 1 : 0);
@@ -149,14 +151,16 @@ export default function RecipesScreen() {
     <>
       <Stack.Screen
         options={{
-          headerRight: () => (
-            <Pressable
-              onPress={() => router.push('/recipe/new' as any)}
-              hitSlop={8}
-            >
-              <IconSymbol name="plus" size={24} color={pc('systemOrange')} />
-            </Pressable>
-          ),
+          headerRight: isWeb
+            ? () => (
+                <Pressable
+                  onPress={() => router.push('/recipe/new' as any)}
+                  hitSlop={8}
+                >
+                  <IconSymbol name="plus" size={24} color={pc('systemOrange')} />
+                </Pressable>
+              )
+            : undefined,
         }}
       />
       <View style={{ flex: 1, flexDirection: 'row' }}>
@@ -196,8 +200,8 @@ export default function RecipesScreen() {
         <FlatList
           data={filtered}
           keyExtractor={(item) => item.id}
-          numColumns={2}
-          key="grid"
+          numColumns={numCols}
+          key={`grid-${numCols}`}
           columnWrapperStyle={{ gap: 12 }}
           contentInsetAdjustmentBehavior="automatic"
           contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 32 }}
@@ -205,6 +209,28 @@ export default function RecipesScreen() {
           ListHeaderComponent={
             !showSidebar ? (
               <View style={{ marginBottom: 8 }}>
+                {/* Botón Nueva receta — solo móvil */}
+                <Pressable
+                  onPress={() => router.push('/recipe/new' as any)}
+                  style={({ pressed }) => ({
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    backgroundColor: pc('systemOrange'),
+                    borderRadius: 14,
+                    borderCurve: 'continuous',
+                    paddingVertical: 13,
+                    marginBottom: 12,
+                    opacity: pressed ? 0.85 : 1,
+                  })}
+                >
+                  <IconSymbol name="plus" size={18} color="#fff" />
+                  <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>
+                    Nueva receta
+                  </Text>
+                </Pressable>
+
                 <Pressable
                   onPress={() => setFilterOpen((v) => !v)}
                   style={({ pressed }) => ({
@@ -312,7 +338,7 @@ export default function RecipesScreen() {
                 }
                 style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
               >
-                <RecipeCard recipe={item} />
+                <RecipeCard recipe={item} photoHeight={cardWidth} />
               </Pressable>
             </Animated.View>
           )}

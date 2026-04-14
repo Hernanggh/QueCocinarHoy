@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 
-const BUCKET = 'recipe-photos';
+export const PHOTO_BUCKET = 'recipe-photos';
+const BUCKET = PHOTO_BUCKET;
 
 export function getPublicUrl(path: string | null): string | null {
   if (!path) return null;
@@ -11,7 +12,7 @@ export function getPublicUrl(path: string | null): string | null {
 export async function uploadPhoto(
   userId: string,
   recipeId: string,
-  file: Blob | File
+  file: ArrayBuffer | Blob | File
 ): Promise<string | null> {
   const path = `${userId}/${recipeId}.jpg`;
   const { error } = await supabase.storage

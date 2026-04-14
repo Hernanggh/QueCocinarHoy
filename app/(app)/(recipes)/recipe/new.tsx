@@ -12,14 +12,17 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Image } from 'expo-image';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/auth';
 import { useLookupData } from '@/hooks/use-lookup-data';
 import { useRecipes } from '@/hooks/use-recipes';
-import { uploadPhoto, getPublicUrl } from '@/lib/storage';
+import { uploadPhoto, deletePhoto, getPublicUrl, PHOTO_BUCKET } from '@/lib/storage';
 import { IngredientRow, type IngredientDraft } from '@/components/ingredient-row';
 import { StepRow, type StepDraft } from '@/components/step-row';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { DifficultyColors, DifficultyLabels } from '@/constants/theme';
 import type { DifficultyLevel } from '@/types/app';
 
@@ -123,10 +126,24 @@ export default function RecipeFormScreen() {
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [4, 3],
-      quality: 0.8,
+      quality: 1,
     });
     if (!result.canceled) {
-      setPhotoUri(result.assets[0].uri);
+      const processed = await ImageManipulator.manipulateAsync(
+        result.assets[0].uri,
+        [{ resize: { width: 1200 } }],
+        { compress: 0.82, format: ImageManipulator.SaveFormat.JPEG }
+      );
+      setPhotoUri(processed.uri);
+    }
+  };
+
+  const removePhoto = async () => {
+    setPhotoUri(null);
+    if (existingPhotoPath) {
+      await deletePhoto(existingPhotoPath);
+      await supabase.from('recipes').update({ photo_url: null }).eq('id', recipeId!);
+      setExistingPhotoPath(null);
     }
   };
 
@@ -171,17 +188,50 @@ export default function RecipeFormScreen() {
       // Upload photo if new one selected
       if (photoUri && !photoUri.startsWith('https://')) {
         try {
-          const response = await fetch(photoUri);
-          const blob = await response.blob();
-          const path = await uploadPhoto(user.id, finalRecipeId, blob);
-          if (path) {
-            await supabase.from('recipes').update({ photo_url: path }).eq('id', finalRecipeId);
+          let savedPath: string | null = null;
+
+          if (Platform.OS === 'web') {
+            // Web: fetch funciona correctamente con blob:/data: URLs del browser
+            const response = await fetch(photoUri);
+            const arrayBuffer = await response.arrayBuffer();
+            savedPath = await uploadPhoto(user.id, finalRecipeId, arrayBuffer);
           } else {
-            console.warn('[recipe/new] photo upload returned null — saved recipe without photo');
+            // iOS/Android: leer archivo como base64 (nativo) → Uint8Array → fetch HTTPS
+            // Evita el polyfill de fetch con file:// y el enum FileSystemUploadType
+            const base64 = await FileSystem.readAsStringAsync(photoUri, {
+              encoding: 'base64' as any,
+            });
+            const binary = atob(base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error('Sesión expirada');
+
+            const storagePath = `${user.id}/${finalRecipeId}.jpg`;
+            const res = await fetch(
+              `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/${PHOTO_BUCKET}/${storagePath}`,
+              {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${session.access_token}`,
+                  'Content-Type': 'image/jpeg',
+                  'x-upsert': 'true',
+                },
+                body: bytes,
+              }
+            );
+            if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+            savedPath = storagePath;
+          }
+
+          if (savedPath) {
+            await supabase.from('recipes').update({ photo_url: savedPath }).eq('id', finalRecipeId);
+          } else {
+            Alert.alert('Error con la foto', 'La receta se guardó pero la foto no pudo subirse.');
           }
         } catch (photoErr: any) {
-          console.warn('[recipe/new] photo upload exception:', photoErr.message);
-          // La receta se guarda aunque la foto falle
+          Alert.alert('Error con la foto', `La receta se guardó. Foto: ${photoErr.message}`);
         }
       }
 
@@ -304,7 +354,7 @@ export default function RecipeFormScreen() {
   );
 
   const photoPickerWeb = (
-    <Pressable onPress={pickPhoto}>
+    <>
       {photoUri ? (
         <View
           style={{
@@ -315,13 +365,32 @@ export default function RecipeFormScreen() {
             overflow: 'hidden',
           }}
         >
-          <Image
-            source={{ uri: photoUri }}
-            style={{ width: 160, height: 160 }}
-            contentFit="cover"
-          />
+          <Pressable onPress={pickPhoto}>
+            <Image
+              source={{ uri: photoUri }}
+              style={{ width: 160, height: 160 }}
+              contentFit="cover"
+            />
+          </Pressable>
+          <Pressable
+            onPress={removePhoto}
+            style={{
+              position: 'absolute',
+              top: 6,
+              right: 6,
+              backgroundColor: 'rgba(0,0,0,0.55)',
+              borderRadius: 12,
+              width: 24,
+              height: 24,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <IconSymbol name="xmark" size={11} color="#fff" />
+          </Pressable>
         </View>
       ) : (
+        <Pressable onPress={pickPhoto}>
         <View
           style={{
             width: 160,
@@ -345,8 +414,9 @@ export default function RecipeFormScreen() {
             {'Clic para\nagregar foto'}
           </Text>
         </View>
+        </Pressable>
       )}
-    </Pressable>
+    </>
   );
 
   const sharedSections = (
@@ -696,16 +766,34 @@ export default function RecipeFormScreen() {
 
             <View>
               {sectionLabel('Foto')}
-              <Pressable onPress={pickPhoto}>
-                {photoUri ? (
-                  <View style={{ borderRadius: 12, borderCurve: 'continuous', overflow: 'hidden' }}>
+              {photoUri ? (
+                <View style={{ borderRadius: 12, borderCurve: 'continuous', overflow: 'hidden' }}>
+                  <Pressable onPress={pickPhoto}>
                     <Image
                       source={{ uri: photoUri }}
                       style={{ width: '100%', height: 200 }}
                       contentFit="cover"
                     />
-                  </View>
-                ) : (
+                  </Pressable>
+                  <Pressable
+                    onPress={removePhoto}
+                    style={{
+                      position: 'absolute',
+                      top: 8,
+                      right: 8,
+                      backgroundColor: 'rgba(0,0,0,0.55)',
+                      borderRadius: 14,
+                      width: 28,
+                      height: 28,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <IconSymbol name="xmark" size={13} color="#fff" />
+                  </Pressable>
+                </View>
+              ) : (
+                <Pressable onPress={pickPhoto}>
                   <View
                     style={{
                       height: 120,
@@ -721,8 +809,8 @@ export default function RecipeFormScreen() {
                       Toca para agregar foto
                     </Text>
                   </View>
-                )}
-              </Pressable>
+                </Pressable>
+              )}
             </View>
 
             <View>

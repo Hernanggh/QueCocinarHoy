@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { normalizeRecipes } from '@/lib/normalizers';
 import { useAuth } from '@/context/auth';
@@ -51,6 +52,16 @@ export function useRecipes() {
 
     return () => { supabase.removeChannel(channel); };
   }, [user, fetchRecipes]);
+
+  // En web: refetch cuando la pestaña vuelve a estar visible (captura cambios de otros dispositivos)
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') fetchRecipes();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [fetchRecipes]);
 
   return { recipes, loading, fetchError, refetch: fetchRecipes };
 }

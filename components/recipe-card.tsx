@@ -7,7 +7,7 @@ import { DifficultyBadge } from '@/components/difficulty-badge';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import type { Recipe } from '@/types/app';
 
-export function RecipeCard({ recipe }: { recipe: Recipe }) {
+export function RecipeCard({ recipe, photoHeight = 180 }: { recipe: Recipe; photoHeight?: number }) {
   const photoUrl = getPublicUrl(recipe.photo_url);
 
   const totalTime = recipe.prep_time_min + recipe.cook_time_min;
@@ -23,7 +23,7 @@ export function RecipeCard({ recipe }: { recipe: Recipe }) {
       }}
     >
       {/* Imagen con nombre en gradiente */}
-      <View style={{ height: 180 }}>
+      <View style={{ height: photoHeight }}>
         {photoUrl ? (
           Platform.OS === 'web' ? (
             <img
