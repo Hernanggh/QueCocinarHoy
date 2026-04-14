@@ -8,6 +8,30 @@ function normalizeSauce(raw: any): Pick<Recipe, 'id' | 'name' | 'ingredients'> {
   };
 }
 
+function normalizeVariation(raw: any): Recipe {
+  return {
+    id: raw.id,
+    user_id: raw.user_id,
+    name: raw.name,
+    description: raw.description ?? null,
+    photo_url: raw.photo_url ?? null,
+    reference_url: raw.reference_url ?? null,
+    base_servings: raw.base_servings,
+    prep_time_min: raw.prep_time_min,
+    cook_time_min: raw.cook_time_min,
+    difficulty: raw.difficulty,
+    notes: raw.notes ?? null,
+    created_at: raw.created_at,
+    parent_recipe_id: raw.parent_recipe_id ?? null,
+    categories: [],
+    methods: [],
+    ingredients: (raw.ingredients ?? []).sort((a: any, b: any) => a.order_index - b.order_index),
+    steps: (raw.steps ?? []).sort((a: any, b: any) => a.order_index - b.order_index),
+    sauces: [],
+    variations: [],
+  };
+}
+
 export function normalizeRecipe(raw: any): Recipe {
   return {
     id: raw.id,
@@ -22,6 +46,7 @@ export function normalizeRecipe(raw: any): Recipe {
     difficulty: raw.difficulty,
     notes: raw.notes ?? null,
     created_at: raw.created_at,
+    parent_recipe_id: raw.parent_recipe_id ?? null,
     categories: (raw.recipe_categories ?? []).map((rc: any) => rc.categories).filter(Boolean),
     methods: (raw.recipe_methods ?? []).map((rm: any) => rm.cooking_methods).filter(Boolean),
     ingredients: (raw.ingredients ?? []).sort((a: any, b: any) => a.order_index - b.order_index),
@@ -30,6 +55,7 @@ export function normalizeRecipe(raw: any): Recipe {
       .map((rs: any) => rs.sauce)
       .filter(Boolean)
       .map(normalizeSauce) as Recipe[],
+    variations: (raw.variations ?? []).map(normalizeVariation),
   };
 }
 
@@ -49,8 +75,21 @@ export function normalizeEvents(raw: any[]): Event[] {
     notes: e.notes ?? null,
     created_at: e.created_at,
     recipes: (e.event_recipes ?? [])
-      .map((er: any) => er.recipes)
-      .filter(Boolean)
-      .map((r: any) => normalizeRecipe(r)),
+      .map((er: any) => {
+        if (!er.recipes) return null;
+        const recipe = normalizeRecipe(er.recipes);
+        if (er.variation_id && er.variation) {
+          const varIngredients = (er.variation.ingredients ?? []).sort(
+            (a: any, b: any) => a.order_index - b.order_index
+          );
+          return {
+            ...recipe,
+            ingredients: [...recipe.ingredients, ...varIngredients],
+            variation_name: er.variation.name,
+          };
+        }
+        return recipe;
+      })
+      .filter(Boolean) as Recipe[],
   }));
 }

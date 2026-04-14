@@ -17,7 +17,11 @@ export default function RecipeDetailScreen() {
   const { recipes, loading } = useRecipes();
   const [addToEventRecipe, setAddToEventRecipe] = useState<Recipe | null>(null);
 
-  const recipe = recipes.find((r) => r.id === id);
+  const recipe = recipes.find((r) => r.id === id)
+    ?? recipes.flatMap((r) => r.variations).find((v) => v.id === id);
+  const parentRecipe = recipe?.parent_recipe_id
+    ? recipes.find((r) => r.id === recipe.parent_recipe_id)
+    : null;
 
   const handleDelete = () => {
     Alert.alert('Eliminar receta', `¿Eliminar "${recipe?.name}"? Esta acción no se puede deshacer.`, [
@@ -68,6 +72,7 @@ export default function RecipeDetailScreen() {
       >
         <RecipeDetailContent
           recipe={recipe}
+          parentName={parentRecipe?.name}
           onEdit={() =>
             router.push({
               pathname: '/recipe/new' as any,
@@ -76,6 +81,13 @@ export default function RecipeDetailScreen() {
           }
           onDelete={handleDelete}
           onSaucePress={(sauceId) => router.push(`/recipe/${sauceId}` as any)}
+          onVariationPress={(v) => router.push(`/recipe/${v.id}` as any)}
+          onAddVariation={() =>
+            router.push({
+              pathname: '/recipe/new' as any,
+              params: { parentRecipeId: id },
+            })
+          }
           onAddToEvent={() => setAddToEventRecipe(recipe)}
         />
       </ScrollView>

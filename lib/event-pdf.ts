@@ -62,7 +62,7 @@ function recipeRow(recipe: Recipe, photoSrc: string | null, compact: boolean): s
   <div class="recipe-row${compact ? ' compact' : ''}">
     ${photoHtml}
     <div class="recipe-info">
-      <div class="recipe-name">${recipe.name}</div>
+      <div class="recipe-name">${recipe.name}${recipe.variation_name ? ` <span style="font-weight:400;color:#888"> · ${recipe.variation_name}</span>` : ''}</div>
       ${descriptionHtml}
     </div>
   </div>`;

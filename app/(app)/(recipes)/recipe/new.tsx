@@ -33,7 +33,7 @@ const isWeb = Platform.OS === 'web';
 
 export default function RecipeFormScreen() {
   const router = useRouter();
-  const { recipeId } = useLocalSearchParams<{ recipeId?: string }>();
+  const { recipeId, parentRecipeId: parentRecipeIdParam } = useLocalSearchParams<{ recipeId?: string; parentRecipeId?: string }>();
   const isEdit = Boolean(recipeId);
   const { user } = useAuth();
   const { categories, methods } = useLookupData();
@@ -51,6 +51,8 @@ export default function RecipeFormScreen() {
   const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
   const [selectedMethods, setSelectedMethods] = useState<number[]>([]);
   const [selectedSauceIds, setSelectedSauceIds] = useState<string[]>([]);
+  const [parentId, setParentId] = useState<string | null>(parentRecipeIdParam ?? null);
+  const [showParentPicker, setShowParentPicker] = useState(false);
   const [ingredients, setIngredients] = useState<IngredientDraft[]>([
     { id: uid(), name: '', quantity: '', unit: '' },
   ]);
@@ -70,9 +72,11 @@ export default function RecipeFormScreen() {
   // Load existing recipe for edit mode
   useEffect(() => {
     if (!isEdit || !recipeId) return;
-    const recipe = recipes.find((r) => r.id === recipeId);
+    const recipe = recipes.find((r) => r.id === recipeId)
+      ?? recipes.flatMap((r) => r.variations).find((v) => v.id === recipeId);
     if (!recipe) return;
     setName(recipe.name);
+    setParentId(recipe.parent_recipe_id ?? null);
     setDescription(recipe.description ?? '');
     setDifficulty(recipe.difficulty);
     setBaseServings(String(recipe.base_servings));
@@ -165,6 +169,7 @@ export default function RecipeFormScreen() {
         cook_time_min: parseInt(cookTime) || 0,
         notes: notes.trim() || null,
         reference_url: referenceUrl.trim() || null,
+        parent_recipe_id: parentId ?? null,
       };
 
       let finalRecipeId = recipeId ?? '';
@@ -308,6 +313,42 @@ export default function RecipeFormScreen() {
     >
       {text}
     </Text>
+  );
+
+  // Recetas base disponibles para seleccionar como padre (excluye la receta actual)
+  const baseRecipesForParent = recipes.filter((r) => r.id !== recipeId);
+  const parentRecipeName = parentId ? baseRecipesForParent.find((r) => r.id === parentId)?.name : null;
+
+  const parentSelector = (
+    <View>
+      {sectionLabel('Receta base (variación)')}
+      <Pressable
+        onPress={() => setShowParentPicker(true)}
+        style={({ pressed }) => ({
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 10,
+          backgroundColor: isWeb ? pc('tertiarySystemBackground') : pc('secondarySystemBackground'),
+          padding: 14,
+          borderRadius: 10,
+          borderCurve: 'continuous' as const,
+          opacity: pressed ? 0.7 : 1,
+        })}
+      >
+        <Text style={{ flex: 1, fontSize: 16, color: parentRecipeName ? pc('label') : pc('secondaryLabel') }}>
+          {parentRecipeName ?? 'Ninguna (receta independiente)'}
+        </Text>
+        {parentId && (
+          <Pressable
+            onPress={(e) => { (e as any).stopPropagation?.(); setParentId(null); }}
+            hitSlop={8}
+          >
+            <IconSymbol name="xmark" size={16} color={pc('secondaryLabel')} />
+          </Pressable>
+        )}
+        <IconSymbol name="chevron.right" size={16} color={pc('secondaryLabel')} />
+      </Pressable>
+    </View>
   );
 
   const inputStyle = {
@@ -525,7 +566,7 @@ export default function RecipeFormScreen() {
 
       {/* Ingredientes */}
       <View>
-        {sectionLabel('Ingredientes')}
+        {sectionLabel(parentId ? 'Ingredientes adicionales' : 'Ingredientes')}
         <View style={{ gap: 8 }}>
           {ingredients.map((ing, idx) => (
             <IngredientRow
@@ -679,7 +720,7 @@ export default function RecipeFormScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: isEdit ? 'Editar Receta' : 'Nueva Receta' }} />
+      <Stack.Screen options={{ title: isEdit ? (parentId ? 'Editar Variación' : 'Editar Receta') : (parentId ? 'Nueva Variación' : 'Nueva Receta') }} />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
@@ -736,6 +777,8 @@ export default function RecipeFormScreen() {
                 </View>
               </View>
             </View>
+
+            {parentSelector}
 
             {sharedSections}
           </View>
@@ -818,10 +861,111 @@ export default function RecipeFormScreen() {
               {difficultySelector}
             </View>
 
+            {parentSelector}
+
             {sharedSections}
           </>
         )}
       </ScrollView>
+
+      {/* Picker de receta base */}
+      {showParentPicker && (
+        <View
+          style={{
+            position: 'absolute',
+            top: 0, left: 0, right: 0, bottom: 0,
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: 'rgba(0,0,0,0.4)',
+            zIndex: 100,
+            padding: 20,
+          }}
+        >
+          <Pressable
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+            onPress={() => setShowParentPicker(false)}
+          />
+          <View
+            style={{
+              width: '100%',
+              maxWidth: 440,
+              maxHeight: 420,
+              backgroundColor: pc('systemBackground'),
+              borderRadius: 20,
+              borderCurve: 'continuous' as const,
+              overflow: 'hidden',
+              ...(isWeb
+                ? { boxShadow: '0 8px 40px rgba(0,0,0,0.22)' }
+                : { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 16, elevation: 8 }),
+            } as any}
+          >
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+                borderBottomWidth: 0.5,
+                borderBottomColor: pc('separator'),
+              }}
+            >
+              <Text style={{ fontSize: 17, fontWeight: '700', color: pc('label') }}>
+                Receta base
+              </Text>
+              <Pressable onPress={() => setShowParentPicker(false)} hitSlop={8}>
+                <IconSymbol name="xmark.circle.fill" size={24} color={pc('systemGray3')} />
+              </Pressable>
+            </View>
+            <ScrollView contentContainerStyle={{ padding: 10, gap: 6 }}>
+              <Pressable
+                onPress={() => { setParentId(null); setShowParentPicker(false); }}
+                style={({ pressed }) => ({
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                  paddingHorizontal: 12,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  borderCurve: 'continuous' as const,
+                  backgroundColor: !parentId ? '#FF950018' : pc('secondarySystemBackground'),
+                  opacity: pressed ? 0.7 : 1,
+                })}
+              >
+                <Text style={{ flex: 1, fontSize: 15, color: !parentId ? '#FF9500' : pc('secondaryLabel'), fontStyle: 'italic' }}>
+                  Ninguna (receta independiente)
+                </Text>
+                {!parentId && <IconSymbol name="checkmark" size={16} color="#FF9500" />}
+              </Pressable>
+              {baseRecipesForParent.map((r) => {
+                const isSelected = parentId === r.id;
+                return (
+                  <Pressable
+                    key={r.id}
+                    onPress={() => { setParentId(r.id); setShowParentPicker(false); }}
+                    style={({ pressed }) => ({
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 12,
+                      paddingHorizontal: 12,
+                      paddingVertical: 12,
+                      borderRadius: 12,
+                      borderCurve: 'continuous' as const,
+                      backgroundColor: isSelected ? '#FF950018' : pc('secondarySystemBackground'),
+                      opacity: pressed ? 0.7 : 1,
+                    })}
+                  >
+                    <Text style={{ flex: 1, fontSize: 15, color: isSelected ? '#FF9500' : pc('label'), fontWeight: isSelected ? '600' : '400' }}>
+                      {r.name}
+                    </Text>
+                    {isSelected && <IconSymbol name="checkmark" size={16} color="#FF9500" />}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      )}
     </>
   );
 }

@@ -161,6 +161,11 @@ export function EventDetailContent({
                     numberOfLines={1}
                   >
                     {recipe.name}
+                    {recipe.variation_name ? (
+                      <Text style={{ fontSize: 14, fontWeight: '400', color: pc('secondaryLabel') }}>
+                        {' · '}{recipe.variation_name}
+                      </Text>
+                    ) : null}
                   </Text>
                   <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
                     <DifficultyBadge difficulty={recipe.difficulty} />

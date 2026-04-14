@@ -113,7 +113,12 @@ export default function RecipesScreen() {
   );
 
   const selectedRecipe = selectedRecipeId
-    ? recipes.find((r) => r.id === selectedRecipeId) ?? null
+    ? (recipes.find((r) => r.id === selectedRecipeId)
+        ?? recipes.flatMap((r) => r.variations).find((v) => v.id === selectedRecipeId)
+        ?? null)
+    : null;
+  const selectedRecipeParent = selectedRecipe?.parent_recipe_id
+    ? recipes.find((r) => r.id === selectedRecipe.parent_recipe_id)
     : null;
 
   const handleWebDelete = (recipeId: string, photoUrl: string | null) => {
@@ -475,6 +480,7 @@ export default function RecipesScreen() {
             <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
               <RecipeDetailContent
                 recipe={selectedRecipe}
+                parentName={selectedRecipeParent?.name}
                 onEdit={() => {
                   setSelectedRecipeId(null);
                   router.push({
@@ -486,6 +492,14 @@ export default function RecipesScreen() {
                   handleWebDelete(selectedRecipe.id, selectedRecipe.photo_url)
                 }
                 onSaucePress={(id) => setSelectedRecipeId(id)}
+                onVariationPress={(v) => setSelectedRecipeId(v.id)}
+                onAddVariation={() => {
+                  setSelectedRecipeId(null);
+                  router.push({
+                    pathname: '/recipe/new' as any,
+                    params: { parentRecipeId: selectedRecipe.id },
+                  });
+                }}
               />
             </ScrollView>
 

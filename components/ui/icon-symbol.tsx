@@ -41,6 +41,8 @@ const MAPPING = {
   'line.3.horizontal.decrease': 'filter-list',
   'doc.fill': 'description',
   'mappin': 'location-on',
+  'arrow.turn.up.left': 'subdirectory-arrow-left',
+  'chevron.up': 'expand-less',
 } as IconMapping;
 
 /**

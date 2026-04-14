@@ -7,7 +7,9 @@ import type { Event } from '@/types/app';
 const EVENT_SELECT = `
   *,
   event_recipes (
-    recipes (
+    variation_id,
+    variation:recipes!variation_id ( id, name, ingredients(*) ),
+    recipes:recipes!recipe_id (
       *,
       ingredients ( * ),
       recipe_categories ( categories ( id, name ) ),

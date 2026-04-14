@@ -1,4 +1,5 @@
 import { pc } from '@/lib/colors';
+import { useState } from 'react';
 import { View, Text, Modal, Pressable, FlatList, Share } from 'react-native';
 import { buildShoppingList } from '@/lib/shopping';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -11,10 +12,11 @@ type ShoppingListSheetProps = {
 };
 
 export function ShoppingListSheet({ event, visible, onClose }: ShoppingListSheetProps) {
-  const items = buildShoppingList(event);
+  const [guestCount, setGuestCount] = useState(event.guest_count);
+  const items = buildShoppingList(event, guestCount);
 
   const handleShare = async () => {
-    const header = `Lista del súper — ${event.name} (${event.guest_count} personas)\n\n`;
+    const header = `Lista del súper — ${event.name} (${guestCount} personas)\n\n`;
     const body = items
       .map((item) => `• ${item.quantity} ${item.unit} de ${item.name}`)
       .join('\n');
@@ -62,11 +64,81 @@ export function ShoppingListSheet({ event, visible, onClose }: ShoppingListSheet
           </View>
         </View>
 
-        {/* Subtitle */}
-        <View style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
-          <Text style={{ fontSize: 14, color: pc('secondaryLabel') }}>
-            {event.guest_count} {event.guest_count === 1 ? 'persona' : 'personas'} · {event.recipes.length} {event.recipes.length === 1 ? 'receta' : 'recetas'}
+        {/* Stepper de comensales */}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: 16,
+            paddingVertical: 10,
+            gap: 12,
+          }}
+        >
+          <Text style={{ flex: 1, fontSize: 14, color: pc('secondaryLabel') }}>
+            {event.recipes.length} {event.recipes.length === 1 ? 'receta' : 'recetas'}
           </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Pressable
+              onPress={() => setGuestCount((n) => Math.max(1, n - 1))}
+              disabled={guestCount <= 1}
+              hitSlop={8}
+              style={({ pressed }) => ({
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                backgroundColor: guestCount <= 1 ? pc('systemFill') : '#FF950018',
+                justifyContent: 'center',
+                alignItems: 'center',
+                opacity: pressed ? 0.7 : 1,
+              })}
+            >
+              <Text
+                style={{
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: guestCount <= 1 ? pc('systemGray3') : '#FF9500',
+                  lineHeight: 24,
+                }}
+              >
+                −
+              </Text>
+            </Pressable>
+            <Text
+              style={{
+                fontSize: 15,
+                fontWeight: '600',
+                color: pc('label'),
+                minWidth: 80,
+                textAlign: 'center',
+              }}
+            >
+              {guestCount} {guestCount === 1 ? 'persona' : 'personas'}
+            </Text>
+            <Pressable
+              onPress={() => setGuestCount((n) => n + 1)}
+              hitSlop={8}
+              style={({ pressed }) => ({
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                backgroundColor: '#FF950018',
+                justifyContent: 'center',
+                alignItems: 'center',
+                opacity: pressed ? 0.7 : 1,
+              })}
+            >
+              <Text
+                style={{
+                  fontSize: 20,
+                  fontWeight: '600',
+                  color: '#FF9500',
+                  lineHeight: 24,
+                }}
+              >
+                +
+              </Text>
+            </Pressable>
+          </View>
         </View>
 
         {items.length === 0 ? (

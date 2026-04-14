@@ -19,6 +19,7 @@ export function AddToEventSheet({ recipe, onClose, onSelect }: Props) {
   const [events, setEvents] = useState<LightEvent[]>([]);
   const [eventIdsWithRecipe, setEventIdsWithRecipe] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
+  const [selectedVariationId, setSelectedVariationId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -54,7 +55,7 @@ export function AddToEventSheet({ recipe, onClose, onSelect }: Props) {
     } else {
       await supabase
         .from('event_recipes')
-        .insert({ event_id: eventId, recipe_id: recipe.id });
+        .insert({ event_id: eventId, recipe_id: recipe.id, variation_id: selectedVariationId });
     }
     onSelect();
   };
@@ -69,7 +70,7 @@ export function AddToEventSheet({ recipe, onClose, onSelect }: Props) {
       style={{
         width: '100%',
         maxWidth: 440,
-        maxHeight: 380,
+        maxHeight: 520,
         backgroundColor: pc('systemBackground'),
         borderRadius: 20,
         borderCurve: 'continuous',
@@ -98,6 +99,71 @@ export function AddToEventSheet({ recipe, onClose, onSelect }: Props) {
           <IconSymbol name="xmark.circle.fill" size={24} color={pc('systemGray3')} />
         </Pressable>
       </View>
+
+      {/* Selector de variación (solo si la receta tiene variaciones) */}
+      {recipe.variations.length > 0 && (
+        <View style={{ borderBottomWidth: 0.5, borderBottomColor: pc('separator'), padding: 10, gap: 6 }}>
+          <Text
+            style={{
+              fontSize: 11,
+              fontWeight: '700',
+              color: pc('secondaryLabel'),
+              textTransform: 'uppercase',
+              letterSpacing: 0.6,
+              paddingHorizontal: 4,
+              marginBottom: 2,
+            }}
+          >
+            Variación
+          </Text>
+          {[{ id: null as string | null, name: 'Base (sin variación)' }, ...recipe.variations].map((v) => {
+            const isSelected = selectedVariationId === v.id;
+            return (
+              <Pressable
+                key={v.id ?? 'base'}
+                onPress={() => setSelectedVariationId(v.id)}
+                style={({ pressed }) => ({
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 10,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  borderRadius: 10,
+                  borderCurve: 'continuous',
+                  backgroundColor: isSelected ? '#FF950012' : 'transparent',
+                  opacity: pressed ? 0.7 : 1,
+                })}
+              >
+                <View
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: 9,
+                    borderWidth: 2,
+                    borderColor: isSelected ? '#FF9500' : pc('systemGray3'),
+                    backgroundColor: isSelected ? '#FF9500' : 'transparent',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}
+                >
+                  {isSelected && (
+                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#fff' }} />
+                  )}
+                </View>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    color: isSelected ? '#FF9500' : pc('label'),
+                    fontWeight: isSelected ? '600' : '400',
+                  }}
+                >
+                  {v.name}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
 
       {loading ? (
         <View style={{ padding: 32, alignItems: 'center' }}>

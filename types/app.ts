@@ -39,11 +39,14 @@ export type Recipe = {
   difficulty: DifficultyLevel;
   notes: string | null;
   created_at: string;
+  parent_recipe_id: string | null;
   categories: Category[];
   methods: CookingMethod[];
   ingredients: Ingredient[];
   steps: Step[];
   sauces: Recipe[];
+  variations: Recipe[];
+  variation_name?: string | null;
 };
 
 export type Event = {

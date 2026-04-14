@@ -11,7 +11,8 @@ const RECIPE_SELECT = `
   recipe_methods ( method_id, cooking_methods ( id, name ) ),
   ingredients ( * ),
   steps ( * ),
-  recipe_sauces!recipe_id ( sauce_recipe_id, sauce:recipes!sauce_recipe_id ( id, name, ingredients(*) ) )
+  recipe_sauces!recipe_id ( sauce_recipe_id, sauce:recipes!sauce_recipe_id ( id, name, ingredients(*) ) ),
+  variations:recipes!parent_recipe_id ( *, ingredients(*), steps(*) )
 `;
 
 export function useRecipes() {
@@ -27,6 +28,7 @@ export function useRecipes() {
       .from('recipes')
       .select(RECIPE_SELECT)
       .eq('user_id', user.id)
+      .is('parent_recipe_id', null)
       .order('created_at', { ascending: false });
     if (error) {
       console.error('[useRecipes] fetch error:', error.message, error.code);

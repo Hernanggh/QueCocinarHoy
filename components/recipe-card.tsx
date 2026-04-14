@@ -111,6 +111,11 @@ export function RecipeCard({ recipe, photoHeight = 180 }: { recipe: Recipe; phot
             </Text>
           </View>
         ))}
+        {recipe.variations.length > 0 && (
+          <Text style={{ fontSize: 12, color: pc('secondaryLabel') }}>
+            {recipe.variations.length} {recipe.variations.length === 1 ? 'variación' : 'variaciones'}
+          </Text>
+        )}
       </View>
     </View>
   );

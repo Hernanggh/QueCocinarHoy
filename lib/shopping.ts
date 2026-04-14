@@ -11,11 +11,12 @@ function addIngredients(
   }
 }
 
-export function buildShoppingList(event: Event): ShoppingItem[] {
+export function buildShoppingList(event: Event, guestCount?: number): ShoppingItem[] {
   const map = new Map<string, number>();
+  const guests = guestCount ?? event.guest_count;
 
   for (const recipe of event.recipes) {
-    const scale = event.guest_count / recipe.base_servings;
+    const scale = guests / recipe.base_servings;
     // Ingredientes directos
     addIngredients(map, recipe.ingredients, scale);
     // Ingredientes de salsas vinculadas (misma escala)
