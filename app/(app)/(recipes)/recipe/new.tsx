@@ -197,6 +197,7 @@ export default function RecipeFormScreen() {
 
           if (Platform.OS === 'web') {
             // Web: fetch funciona correctamente con blob:/data: URLs del browser
+            if (existingPhotoPath) await deletePhoto(existingPhotoPath);
             const response = await fetch(photoUri);
             const arrayBuffer = await response.arrayBuffer();
             savedPath = await uploadPhoto(user.id, finalRecipeId, arrayBuffer);
@@ -213,7 +214,8 @@ export default function RecipeFormScreen() {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) throw new Error('Sesión expirada');
 
-            const storagePath = `${user.id}/${finalRecipeId}.jpg`;
+            if (existingPhotoPath) await deletePhoto(existingPhotoPath);
+            const storagePath = `${user.id}/${finalRecipeId}-${Date.now()}.jpg`;
             const res = await fetch(
               `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/${PHOTO_BUCKET}/${storagePath}`,
               {
@@ -221,7 +223,6 @@ export default function RecipeFormScreen() {
                 headers: {
                   Authorization: `Bearer ${session.access_token}`,
                   'Content-Type': 'image/jpeg',
-                  'x-upsert': 'true',
                 },
                 body: bytes,
               }

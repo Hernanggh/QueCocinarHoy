@@ -14,10 +14,10 @@ export async function uploadPhoto(
   recipeId: string,
   file: ArrayBuffer | Blob | File
 ): Promise<string | null> {
-  const path = `${userId}/${recipeId}.jpg`;
+  const path = `${userId}/${recipeId}-${Date.now()}.jpg`;
   const { error } = await supabase.storage
     .from(BUCKET)
-    .upload(path, file, { contentType: 'image/jpeg', upsert: true });
+    .upload(path, file, { contentType: 'image/jpeg' });
   if (error) {
     console.error('[storage] uploadPhoto error:', error.message, 'path:', path);
     return null;

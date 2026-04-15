@@ -492,6 +492,11 @@ export default function RecipesScreen() {
               <RecipeDetailContent
                 recipe={selectedRecipe}
                 parentName={selectedRecipeParent?.name}
+                onParentPress={
+                  selectedRecipe.parent_recipe_id
+                    ? () => setSelectedRecipeId(selectedRecipe.parent_recipe_id!)
+                    : undefined
+                }
                 onEdit={() => {
                   setSelectedRecipeId(null);
                   router.push({

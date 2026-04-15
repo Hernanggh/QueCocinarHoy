@@ -100,6 +100,7 @@ export default function RecipeDetailScreen() {
               params: { parentRecipeId: id },
             })
           }
+          onParentPress={parentRecipe ? () => router.push(`/recipe/${parentRecipe.id}` as any) : undefined}
           onAddToEvent={() => setAddToEventRecipe(recipe)}
           onShare={handleShare}
         />

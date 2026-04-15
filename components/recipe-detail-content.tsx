@@ -15,10 +15,11 @@ type Props = {
   onShare?: () => void;
   onAddVariation?: () => void;
   onVariationPress?: (variation: Recipe) => void;
+  onParentPress?: () => void;
   parentName?: string | null;
 };
 
-export function RecipeDetailContent({ recipe, onEdit, onDelete, onSaucePress, onAddToEvent, onShare, onAddVariation, onVariationPress, parentName }: Props) {
+export function RecipeDetailContent({ recipe, onEdit, onDelete, onSaucePress, onAddToEvent, onShare, onAddVariation, onVariationPress, onParentPress, parentName }: Props) {
   const photoUrl = getPublicUrl(recipe.photo_url ?? null);
   const totalTime = recipe.prep_time_min + recipe.cook_time_min;
 
@@ -54,12 +55,27 @@ export function RecipeDetailContent({ recipe, onEdit, onDelete, onSaucePress, on
       )}
 
       {parentName && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginHorizontal: 16, marginTop: 12 }}>
+        <Pressable
+          onPress={onParentPress ?? undefined}
+          disabled={!onParentPress}
+          style={({ pressed }) => ({
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+            marginHorizontal: 16,
+            marginTop: 12,
+            alignSelf: 'flex-start',
+            opacity: pressed ? 0.6 : 1,
+          })}
+        >
           <IconSymbol name="arrow.turn.up.left" size={13} color={pc('secondaryLabel')} />
-          <Text style={{ fontSize: 13, color: pc('secondaryLabel') }}>
+          <Text style={{ fontSize: 13, color: onParentPress ? '#FF9500' : pc('secondaryLabel') }}>
             Variación de: <Text style={{ fontWeight: '600' }}>{parentName}</Text>
           </Text>
-        </View>
+          {onParentPress && (
+            <IconSymbol name="chevron.right" size={12} color="#FF9500" />
+          )}
+        </Pressable>
       )}
 
       <View style={{ flexDirection: 'row', gap: 8, marginHorizontal: 16, marginTop: 12 }}>
