@@ -8,6 +8,7 @@ import {
   Pressable,
   Platform,
   Alert,
+  Image,
   useWindowDimensions,
 } from 'react-native';
 import { useRouter, Stack, useFocusEffect } from 'expo-router';
@@ -164,6 +165,13 @@ export default function RecipesScreen() {
     <>
       <Stack.Screen
         options={{
+          headerLeft: !isWeb ? () => (
+            <Image
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
+              source={require('../../../assets/images/icon.png')}
+              style={{ width: 30, height: 30, borderRadius: 7 }}
+            />
+          ) : undefined,
           headerRight: !isWeb ? () => (
             <Pressable
               onPress={() =>
@@ -242,22 +250,6 @@ export default function RecipesScreen() {
                 />
               )}
             </ScrollView>
-            <Pressable
-              onPress={signOut}
-              style={({ pressed }) => ({
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 10,
-                paddingHorizontal: 16,
-                paddingVertical: 14,
-                borderTopWidth: 0.5,
-                borderTopColor: pc('separator'),
-                opacity: pressed ? 0.6 : 1,
-              })}
-            >
-              <IconSymbol name="rectangle.portrait.and.arrow.right" size={18} color={pc('secondaryLabel')} />
-              <Text style={{ fontSize: 15, color: pc('secondaryLabel') }}>Cerrar sesión</Text>
-            </Pressable>
           </View>
         )}
 
@@ -269,7 +261,7 @@ export default function RecipesScreen() {
           key={`grid-${numCols}`}
           columnWrapperStyle={{ gap: 12 }}
           contentInsetAdjustmentBehavior="automatic"
-          contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 32 }}
+          contentContainerStyle={{ padding: 16, paddingTop: isWeb ? 72 : 16, gap: 12, paddingBottom: 32 }}
           style={{ flex: 1 }}
           ListHeaderComponent={
             !showSidebar ? (

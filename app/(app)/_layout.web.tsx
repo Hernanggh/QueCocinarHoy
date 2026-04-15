@@ -1,10 +1,13 @@
 import { pc } from '@/lib/colors';
 import { Tabs } from 'expo-router';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { WebNavBar } from '@/components/web-nav-bar';
 
 export default function AppLayoutWeb() {
   return (
     <Tabs
+      initialRouteName="(recipes)"
+      tabBar={(props) => <WebNavBar {...props} />}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: pc('systemOrange'),
@@ -28,6 +31,7 @@ export default function AppLayoutWeb() {
           ),
         }}
       />
+      <Tabs.Screen name="index" options={{ href: null }} />
     </Tabs>
   );
 }

@@ -1,0 +1,62 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <clipPath id="c">
+      <rect width="200" height="200" rx="44"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#c)">
+    <!-- Full orange background -->
+    <rect width="200" height="200" fill="#FF9500"/>
+
+    <!-- ── BBQ KETTLE GRILL (top-left, white) ── -->
+
+    <!-- Smoke: 3 rising circles -->
+    <circle cx="35" cy="32" r="4.5" fill="white"/>
+    <circle cx="47" cy="24" r="3.5" fill="white" opacity="0.6"/>
+    <circle cx="59" cy="32" r="4.5" fill="white"/>
+
+    <!-- Dome (filled half-circle) -->
+    <path d="M22,62 A26,26 0 0 1 74,62 Z" fill="white"/>
+
+    <!-- Rim (solid pill) -->
+    <rect x="18" y="60" width="60" height="7" rx="3.5" fill="white"/>
+
+    <!-- Bowl (filled crescent) -->
+    <path d="M18,67 Q48,86 78,67 Z" fill="white"/>
+
+    <!-- Left leg -->
+    <line x1="30" y1="84" x2="18" y2="106" stroke="white" stroke-width="8" stroke-linecap="round"/>
+    <!-- Right leg -->
+    <line x1="66" y1="84" x2="76" y2="104" stroke="white" stroke-width="8" stroke-linecap="round"/>
+    <!-- Crossbar -->
+    <line x1="22" y1="97" x2="72" y2="97" stroke="white" stroke-width="6" stroke-linecap="round"/>
+
+    <!-- ── KITCHEN POT (bottom-right, white) ── -->
+
+    <!-- Steam: 3 rising circles -->
+    <circle cx="132" cy="103" r="4" fill="white"/>
+    <circle cx="148" cy="95" r="3.5" fill="white" opacity="0.6"/>
+    <circle cx="164" cy="103" r="4" fill="white"/>
+
+    <!-- Lid knob -->
+    <circle cx="148" cy="113" r="5.5" fill="white"/>
+
+    <!-- Lid (filled arc) -->
+    <path d="M114,123 Q148,111 178,123 Z" fill="white"/>
+
+    <!-- Pot body -->
+    <rect x="112" y="123" width="64" height="40" rx="9" fill="white"/>
+
+    <!-- Left handle (filled C) -->
+    <path d="M112,132 Q98,132 98,143 Q98,155 112,155 L112,149 Q106,149 106,143 Q106,137 112,137 Z" fill="white"/>
+    <!-- Right handle (filled C) -->
+    <path d="M176,132 Q190,132 190,143 Q190,155 176,155 L176,149 Q182,149 182,143 Q182,137 176,137 Z" fill="white"/>
+
+    <!-- Base (rounded pill) -->
+    <rect x="116" y="161" width="58" height="7" rx="3.5" fill="white"/>
+
+    <!-- Diagonal white separator (top-right to bottom-left) -->
+    <line x1="200" y1="0" x2="0" y2="200" stroke="white" stroke-width="4.5"/>
+  </g>
+</svg>

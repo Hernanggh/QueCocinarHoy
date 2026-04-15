@@ -1,11 +1,10 @@
 import { pc } from '@/lib/colors';
 import { useState, useCallback } from 'react';
-import { View, Text, FlatList, Pressable, ScrollView, Platform, useWindowDimensions } from 'react-native';
+import { View, Text, FlatList, Pressable, ScrollView, Platform, Image, useWindowDimensions } from 'react-native';
 import { useRouter, Stack, useFocusEffect } from 'expo-router';
 import { generateAndShareEventPDF } from '@/lib/event-pdf';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/context/auth';
 import { useEvents } from '@/hooks/use-events';
 import { EventCard } from '@/components/event-card';
 import { EventDetailContent } from '@/components/event-detail-content';
@@ -43,7 +42,6 @@ function filterEvents(events: Event[], period: Period): Event[] {
 
 export default function EventsScreen() {
   const router = useRouter();
-  const { signOut } = useAuth();
   const { events, loading, isOffline, refetch, removeEvent } = useEvents();
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [sheetVisible, setSheetVisible] = useState(false);
@@ -153,7 +151,17 @@ export default function EventsScreen() {
 
   return (
     <>
-      <Stack.Screen options={{}} />
+      <Stack.Screen
+        options={{
+          headerLeft: !isWeb ? () => (
+            <Image
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
+              source={require('../../../assets/images/icon.png')}
+              style={{ width: 30, height: 30, borderRadius: 7 }}
+            />
+          ) : undefined,
+        }}
+      />
       {isOffline && <OfflineBanner />}
       <View style={{ flex: 1, flexDirection: 'row' }}>
         {/* Sidebar (solo en web ancho) */}
@@ -204,22 +212,6 @@ export default function EventsScreen() {
               </View>
               {sidebarSection}
             </ScrollView>
-            <Pressable
-              onPress={signOut}
-              style={({ pressed }) => ({
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 10,
-                paddingHorizontal: 16,
-                paddingVertical: 14,
-                borderTopWidth: 0.5,
-                borderTopColor: pc('separator'),
-                opacity: pressed ? 0.6 : 1,
-              })}
-            >
-              <IconSymbol name="rectangle.portrait.and.arrow.right" size={18} color={pc('secondaryLabel')} />
-              <Text style={{ fontSize: 15, color: pc('secondaryLabel') }}>Cerrar sesión</Text>
-            </Pressable>
           </View>
         )}
 
@@ -231,7 +223,7 @@ export default function EventsScreen() {
           key={`grid-${numCols}`}
           columnWrapperStyle={{ gap: 12 }}
           contentInsetAdjustmentBehavior="automatic"
-          contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 32 }}
+          contentContainerStyle={{ padding: 16, paddingTop: isWeb ? 72 : 16, gap: 12, paddingBottom: 32 }}
           style={{ flex: 1 }}
           ListHeaderComponent={
             !showSidebar ? (
