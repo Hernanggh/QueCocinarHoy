@@ -11,6 +11,7 @@ import { EventDetailContent } from '@/components/event-detail-content';
 import { ShoppingListSheet } from '@/components/shopping-list-sheet';
 import { LoadingScreen } from '@/components/loading-screen';
 import { EmptyState } from '@/components/empty-state';
+import { OfflineBanner } from '@/components/offline-banner';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import type { Event } from '@/types/app';
 
@@ -41,7 +42,7 @@ function filterEvents(events: Event[], period: Period): Event[] {
 
 export default function EventsScreen() {
   const router = useRouter();
-  const { events, loading, refetch, removeEvent } = useEvents();
+  const { events, loading, isOffline, refetch, removeEvent } = useEvents();
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [sheetVisible, setSheetVisible] = useState(false);
   const [period, setPeriod] = useState<Period>('all');
@@ -151,6 +152,7 @@ export default function EventsScreen() {
   return (
     <>
       <Stack.Screen options={{}} />
+      {isOffline && <OfflineBanner />}
       <View style={{ flex: 1, flexDirection: 'row' }}>
         {/* Sidebar (solo en web ancho) */}
         {showSidebar && (

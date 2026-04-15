@@ -20,6 +20,7 @@ import { shareRecipeAsImage } from '@/lib/recipe-share';
 import { RecipeDetailContent } from '@/components/recipe-detail-content';
 import { LoadingScreen } from '@/components/loading-screen';
 import { EmptyState } from '@/components/empty-state';
+import { OfflineBanner } from '@/components/offline-banner';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { AddToEventSheet } from '@/components/add-to-event-sheet';
 import type { Recipe } from '@/types/app';
@@ -98,7 +99,7 @@ function SidebarSection({
 
 export default function RecipesScreen() {
   const router = useRouter();
-  const { recipes, loading, fetchError, refetch } = useRecipes();
+  const { recipes, loading, fetchError, isOffline, refetch } = useRecipes();
   const { categories, methods } = useLookupData();
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [selectedMethod, setSelectedMethod] = useState<number | null>(null);
@@ -159,6 +160,7 @@ export default function RecipesScreen() {
   return (
     <>
       <Stack.Screen options={{}} />
+      {isOffline && <OfflineBanner />}
       <View style={{ flex: 1, flexDirection: 'row' }}>
         {/* Sidebar (solo en web ancho) */}
         {showSidebar && (

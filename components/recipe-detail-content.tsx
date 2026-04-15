@@ -1,4 +1,5 @@
 import { pc } from '@/lib/colors';
+import { useState } from 'react';
 import { View, Text, Pressable, Linking, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { getPublicUrl } from '@/lib/storage';
@@ -22,6 +23,12 @@ type Props = {
 export function RecipeDetailContent({ recipe, onEdit, onDelete, onSaucePress, onAddToEvent, onShare, onAddVariation, onVariationPress, onParentPress, parentName }: Props) {
   const photoUrl = getPublicUrl(recipe.photo_url ?? null);
   const totalTime = recipe.prep_time_min + recipe.cook_time_min;
+  const [currentServings, setCurrentServings] = useState(recipe.base_servings);
+  const scale = currentServings / recipe.base_servings;
+  const scaleQty = (q: number) => {
+    const scaled = Math.round(q * scale * 100) / 100;
+    return scaled % 1 === 0 ? String(scaled) : scaled.toFixed(2).replace(/\.?0+$/, '');
+  };
 
   const sectionTitle = (text: string) => (
     <Text
@@ -206,6 +213,34 @@ export function RecipeDetailContent({ recipe, onEdit, onDelete, onSaucePress, on
         {recipe.ingredients.length > 0 && (
           <View>
             {sectionTitle(recipe.parent_recipe_id ? 'Ingredientes adicionales' : 'Ingredientes')}
+            {/* Stepper de porciones */}
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: 12,
+              }}
+            >
+              <Text style={{ fontSize: 14, color: pc('secondaryLabel') }}>Porciones</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                <Pressable
+                  onPress={() => setCurrentServings((s) => Math.max(1, s - 1))}
+                  hitSlop={8}
+                >
+                  <IconSymbol name="minus.circle" size={28} color={pc('systemOrange')} />
+                </Pressable>
+                <Text style={{ fontSize: 17, fontWeight: '600', color: pc('label'), minWidth: 28, textAlign: 'center' }}>
+                  {currentServings}
+                </Text>
+                <Pressable
+                  onPress={() => setCurrentServings((s) => s + 1)}
+                  hitSlop={8}
+                >
+                  <IconSymbol name="plus.circle" size={28} color={pc('systemOrange')} />
+                </Pressable>
+              </View>
+            </View>
             <View
               style={{
                 backgroundColor: pc('secondarySystemBackground'),
@@ -236,7 +271,7 @@ export function RecipeDetailContent({ recipe, onEdit, onDelete, onSaucePress, on
                       fontVariant: ['tabular-nums'],
                     }}
                   >
-                    {ing.quantity} {ing.unit}
+                    {scaleQty(ing.quantity)} {ing.unit}
                   </Text>
                 </View>
               ))}

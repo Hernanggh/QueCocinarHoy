@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { normalizeRecipes } from '@/lib/normalizers';
+import { saveCache, loadCache } from '@/lib/cache';
 import { useAuth } from '@/context/auth';
 import type { Recipe } from '@/types/app';
 
@@ -20,6 +21,7 @@ export function useRecipes() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [isOffline, setIsOffline] = useState(false);
   const channelName = useRef(`recipes:${Math.random()}`).current;
 
   const fetchRecipes = useCallback(async () => {
@@ -33,9 +35,16 @@ export function useRecipes() {
     if (error) {
       console.error('[useRecipes] fetch error:', error.message, error.code);
       setFetchError(error.message);
+      const cached = await loadCache<unknown[]>(`recipes_${user.id}`);
+      if (cached) {
+        setRecipes(normalizeRecipes(cached));
+        setIsOffline(true);
+      }
     } else if (data) {
       setFetchError(null);
+      setIsOffline(false);
       setRecipes(normalizeRecipes(data));
+      await saveCache(`recipes_${user.id}`, data);
     }
   }, [user]);
 
@@ -65,5 +74,5 @@ export function useRecipes() {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [fetchRecipes]);
 
-  return { recipes, loading, fetchError, refetch: fetchRecipes };
+  return { recipes, loading, fetchError, isOffline, refetch: fetchRecipes };
 }
