@@ -47,6 +47,7 @@ const MAPPING = {
   'arrow.turn.up.left': 'subdirectory-arrow-left',
   'chevron.up': 'expand-less',
   'square.and.arrow.up': 'ios-share',
+  'rectangle.portrait.and.arrow.right': 'logout',
 } as IconMapping;
 
 /**

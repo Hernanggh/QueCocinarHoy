@@ -7,10 +7,12 @@ import {
   ScrollView,
   Pressable,
   Platform,
+  Alert,
   useWindowDimensions,
 } from 'react-native';
 import { useRouter, Stack, useFocusEffect } from 'expo-router';
 import Animated, { FadeInUp } from 'react-native-reanimated';
+import { useAuth } from '@/context/auth';
 import { useRecipes } from '@/hooks/use-recipes';
 import { useLookupData } from '@/hooks/use-lookup-data';
 import { deletePhoto } from '@/lib/storage';
@@ -99,6 +101,7 @@ function SidebarSection({
 
 export default function RecipesScreen() {
   const router = useRouter();
+  const { signOut } = useAuth();
   const { recipes, loading, fetchError, isOffline, refetch } = useRecipes();
   const { categories, methods } = useLookupData();
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
@@ -159,7 +162,23 @@ export default function RecipesScreen() {
 
   return (
     <>
-      <Stack.Screen options={{}} />
+      <Stack.Screen
+        options={{
+          headerRight: !isWeb ? () => (
+            <Pressable
+              onPress={() =>
+                Alert.alert('Cerrar sesión', '¿Salir de la app?', [
+                  { text: 'Cancelar', style: 'cancel' },
+                  { text: 'Cerrar sesión', style: 'destructive', onPress: signOut },
+                ])
+              }
+              hitSlop={8}
+            >
+              <IconSymbol name="person.crop.circle" size={24} color={pc('systemGray2')} />
+            </Pressable>
+          ) : undefined,
+        }}
+      />
       {isOffline && <OfflineBanner />}
       <View style={{ flex: 1, flexDirection: 'row' }}>
         {/* Sidebar (solo en web ancho) */}
@@ -173,8 +192,9 @@ export default function RecipesScreen() {
             }}
           >
             <ScrollView
+              style={{ flex: 1 }}
               contentInsetAdjustmentBehavior="automatic"
-              contentContainerStyle={{ paddingTop: sidebarTopPad, paddingBottom: 32 }}
+              contentContainerStyle={{ paddingTop: sidebarTopPad, paddingBottom: 16 }}
             >
               <View style={{ marginBottom: 16 }}>
                 <Text
@@ -222,6 +242,22 @@ export default function RecipesScreen() {
                 />
               )}
             </ScrollView>
+            <Pressable
+              onPress={signOut}
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 10,
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+                borderTopWidth: 0.5,
+                borderTopColor: pc('separator'),
+                opacity: pressed ? 0.6 : 1,
+              })}
+            >
+              <IconSymbol name="rectangle.portrait.and.arrow.right" size={18} color={pc('secondaryLabel')} />
+              <Text style={{ fontSize: 15, color: pc('secondaryLabel') }}>Cerrar sesión</Text>
+            </Pressable>
           </View>
         )}
 

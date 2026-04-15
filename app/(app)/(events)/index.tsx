@@ -5,6 +5,7 @@ import { useRouter, Stack, useFocusEffect } from 'expo-router';
 import { generateAndShareEventPDF } from '@/lib/event-pdf';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/context/auth';
 import { useEvents } from '@/hooks/use-events';
 import { EventCard } from '@/components/event-card';
 import { EventDetailContent } from '@/components/event-detail-content';
@@ -42,6 +43,7 @@ function filterEvents(events: Event[], period: Period): Event[] {
 
 export default function EventsScreen() {
   const router = useRouter();
+  const { signOut } = useAuth();
   const { events, loading, isOffline, refetch, removeEvent } = useEvents();
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [sheetVisible, setSheetVisible] = useState(false);
@@ -165,8 +167,9 @@ export default function EventsScreen() {
             }}
           >
             <ScrollView
+              style={{ flex: 1 }}
               contentInsetAdjustmentBehavior="automatic"
-              contentContainerStyle={{ paddingTop: sidebarTopPad, paddingBottom: 32 }}
+              contentContainerStyle={{ paddingTop: sidebarTopPad, paddingBottom: 16 }}
             >
               <View style={{ marginBottom: 16 }}>
                 <Text
@@ -201,6 +204,22 @@ export default function EventsScreen() {
               </View>
               {sidebarSection}
             </ScrollView>
+            <Pressable
+              onPress={signOut}
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 10,
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+                borderTopWidth: 0.5,
+                borderTopColor: pc('separator'),
+                opacity: pressed ? 0.6 : 1,
+              })}
+            >
+              <IconSymbol name="rectangle.portrait.and.arrow.right" size={18} color={pc('secondaryLabel')} />
+              <Text style={{ fontSize: 15, color: pc('secondaryLabel') }}>Cerrar sesión</Text>
+            </Pressable>
           </View>
         )}
 
