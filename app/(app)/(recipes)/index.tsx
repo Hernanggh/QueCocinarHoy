@@ -26,6 +26,7 @@ import { EmptyState } from '@/components/empty-state';
 import { OfflineBanner } from '@/components/offline-banner';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { AddToEventSheet } from '@/components/add-to-event-sheet';
+import { exportRecipesAsPDF, exportRecipesAsJSON } from '@/lib/recipes-export';
 import type { Recipe } from '@/types/app';
 
 const isWeb = Platform.OS === 'web';
@@ -250,6 +251,71 @@ export default function RecipesScreen() {
                 />
               )}
             </ScrollView>
+            {/* Sección Cookbook — parte inferior del sidebar */}
+            <View
+              style={{
+                borderTopWidth: 0.5,
+                borderTopColor: pc('separator'),
+                paddingTop: 10,
+                paddingBottom: 10,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: '700',
+                  color: pc('secondaryLabel'),
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.8,
+                  paddingHorizontal: 16,
+                  marginBottom: 4,
+                }}
+              >
+                Cookbook
+              </Text>
+              <Pressable
+                onPress={() => {
+                  if (recipes.length === 0) return;
+                  // eslint-disable-next-line @typescript-eslint/no-require-imports
+                  const iconMod = require('../../../assets/images/icon.png');
+                  let iconUri: string | undefined;
+                  if (typeof iconMod === 'string') {
+                    iconUri = iconMod;
+                  } else if (typeof iconMod === 'object' && iconMod !== null) {
+                    iconUri = iconMod.uri ?? iconMod.default?.uri ?? iconMod.default;
+                  }
+                  if (iconUri && !iconUri.startsWith('http') && typeof window !== 'undefined') {
+                    iconUri = `${window.location.origin}${iconUri.startsWith('/') ? iconUri : '/' + iconUri}`;
+                  }
+                  exportRecipesAsPDF(recipes, iconUri);
+                }}
+                style={({ pressed }) => ({
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  paddingHorizontal: 16,
+                  paddingVertical: 9,
+                  opacity: pressed ? 0.6 : 1,
+                })}
+              >
+                <IconSymbol name="doc.richtext" size={16} color={pc('secondaryLabel')} />
+                <Text style={{ fontSize: 15, color: pc('secondaryLabel') }}>PDF</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => { if (recipes.length > 0) exportRecipesAsJSON(recipes); }}
+                style={({ pressed }) => ({
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  paddingHorizontal: 16,
+                  paddingVertical: 9,
+                  opacity: pressed ? 0.6 : 1,
+                })}
+              >
+                <IconSymbol name="arrow.down.circle" size={16} color={pc('secondaryLabel')} />
+                <Text style={{ fontSize: 15, color: pc('secondaryLabel') }}>JSON</Text>
+              </Pressable>
+            </View>
           </View>
         )}
 
@@ -266,27 +332,53 @@ export default function RecipesScreen() {
           ListHeaderComponent={
             !showSidebar ? (
               <View style={{ marginBottom: 8 }}>
-                {/* Botón Nueva receta — solo móvil */}
-                <Pressable
-                  onPress={() => router.push('/recipe/new' as any)}
-                  style={({ pressed }) => ({
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 8,
-                    backgroundColor: pc('systemOrange'),
-                    borderRadius: 14,
-                    borderCurve: 'continuous',
-                    paddingVertical: 13,
-                    marginBottom: 12,
-                    opacity: pressed ? 0.85 : 1,
-                  })}
-                >
-                  <IconSymbol name="plus" size={18} color="#fff" />
-                  <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>
-                    Nueva receta
-                  </Text>
-                </Pressable>
+                {/* Botones Nueva receta + Cookbook — solo móvil */}
+                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+                  <Pressable
+                    onPress={() => router.push('/recipe/new' as any)}
+                    style={({ pressed }) => ({
+                      flex: 1,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      backgroundColor: pc('systemOrange'),
+                      borderRadius: 14,
+                      borderCurve: 'continuous',
+                      paddingVertical: 13,
+                      opacity: pressed ? 0.85 : 1,
+                    })}
+                  >
+                    <IconSymbol name="plus" size={18} color="#fff" />
+                    <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>
+                      Nueva receta
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      if (recipes.length === 0) return;
+                      // En mobile, require devuelve un número (asset ID); no se puede usar como URI
+                      exportRecipesAsPDF(recipes);
+                    }}
+                    style={({ pressed }) => ({
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      backgroundColor: pc('secondarySystemBackground'),
+                      borderRadius: 14,
+                      borderCurve: 'continuous',
+                      paddingVertical: 13,
+                      paddingHorizontal: 16,
+                      opacity: pressed ? 0.85 : 1,
+                    })}
+                  >
+                    <IconSymbol name="book.fill" size={18} color={pc('secondaryLabel')} />
+                    <Text style={{ color: pc('secondaryLabel'), fontSize: 16, fontWeight: '600' }}>
+                      Cookbook
+                    </Text>
+                  </Pressable>
+                </View>
 
                 <Pressable
                   onPress={() => setFilterOpen((v) => !v)}
