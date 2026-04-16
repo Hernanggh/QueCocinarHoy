@@ -1,11 +1,13 @@
 import { pc } from '@/lib/colors';
-import { Image, Pressable, Text, View } from 'react-native';
+import { Image, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { useAuth } from '@/context/auth';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 export function WebNavBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { signOut } = useAuth();
+  const { width } = useWindowDimensions();
+  const isCompact = width < 600;
 
   const visibleRoutes = state.routes.filter((r) => r.name !== 'index');
 
@@ -33,16 +35,18 @@ export function WebNavBar({ state, descriptors, navigation }: BottomTabBarProps)
         source={require('../assets/images/icon.png')}
         style={{ width: 28, height: 28, borderRadius: 7 }}
       />
-      <Text
-        style={{
-          fontSize: 15,
-          fontWeight: '700',
-          color: pc('label'),
-          marginRight: 12,
-        }}
-      >
-        QuéCocinarHoy
-      </Text>
+      {!isCompact && (
+        <Text
+          style={{
+            fontSize: 15,
+            fontWeight: '700',
+            color: pc('label'),
+            marginRight: 12,
+          }}
+        >
+          QuéCocinarHoy
+        </Text>
+      )}
 
       {/* Tabs */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
@@ -66,7 +70,7 @@ export function WebNavBar({ state, descriptors, navigation }: BottomTabBarProps)
                 }
               }}
               style={({ pressed }) => ({
-                paddingHorizontal: 14,
+                paddingHorizontal: isCompact ? 10 : 14,
                 paddingVertical: 6,
                 borderRadius: 8,
                 backgroundColor: isFocused ? '#FF950018' : 'transparent',
@@ -107,7 +111,9 @@ export function WebNavBar({ state, descriptors, navigation }: BottomTabBarProps)
           size={16}
           color={pc('secondaryLabel')}
         />
-        <Text style={{ fontSize: 14, color: pc('secondaryLabel') }}>Cerrar sesión</Text>
+        {!isCompact && (
+          <Text style={{ fontSize: 14, color: pc('secondaryLabel') }}>Cerrar sesión</Text>
+        )}
       </Pressable>
     </View>
   );
