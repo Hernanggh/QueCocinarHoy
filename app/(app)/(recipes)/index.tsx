@@ -29,6 +29,8 @@ import { AddToEventSheet } from '@/components/add-to-event-sheet';
 import { exportRecipesAsPDF, exportRecipesAsJSON } from '@/lib/recipes-export';
 import type { Recipe } from '@/types/app';
 
+const SHOW_JSON_EXPORT = false;
+
 const isWeb = Platform.OS === 'web';
 
 function SidebarSection({
@@ -301,20 +303,22 @@ export default function RecipesScreen() {
                 <IconSymbol name="doc.richtext" size={16} color={pc('secondaryLabel')} />
                 <Text style={{ fontSize: 15, color: pc('secondaryLabel') }}>PDF</Text>
               </Pressable>
-              <Pressable
-                onPress={() => { if (recipes.length > 0) exportRecipesAsJSON(recipes); }}
-                style={({ pressed }) => ({
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 8,
-                  paddingHorizontal: 16,
-                  paddingVertical: 9,
-                  opacity: pressed ? 0.6 : 1,
-                })}
-              >
-                <IconSymbol name="arrow.down.circle" size={16} color={pc('secondaryLabel')} />
-                <Text style={{ fontSize: 15, color: pc('secondaryLabel') }}>JSON</Text>
-              </Pressable>
+              {SHOW_JSON_EXPORT && (
+                <Pressable
+                  onPress={() => { if (recipes.length > 0) exportRecipesAsJSON(recipes); }}
+                  style={({ pressed }) => ({
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 8,
+                    paddingHorizontal: 16,
+                    paddingVertical: 9,
+                    opacity: pressed ? 0.6 : 1,
+                  })}
+                >
+                  <IconSymbol name="arrow.down.circle" size={16} color={pc('secondaryLabel')} />
+                  <Text style={{ fontSize: 15, color: pc('secondaryLabel') }}>JSON</Text>
+                </Pressable>
+              )}
             </View>
           </View>
         )}
