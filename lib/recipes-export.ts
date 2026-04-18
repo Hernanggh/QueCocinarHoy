@@ -111,7 +111,7 @@ function buildIndex(recipes: Recipe[]): string {
           <span class="index-dots"></span>
           <span class="index-page">${pageNum}</span>
         </div>`;
-      pageNum += 1 + (r.variations?.length ?? 0);
+      pageNum += pagesForRecipe(r) + (r.variations?.reduce((sum, v) => sum + pagesForRecipe(v), 0) ?? 0);
       return row;
     }).join('');
 
@@ -127,7 +127,45 @@ function buildIndex(recipes: Recipe[]): string {
 
 // ─── Recipe page ─────────────────────────────────────────────────────────────
 
+function splitSteps(recipe: Recipe): { page1Steps: Recipe['steps']; page2Steps: Recipe['steps'] } | null {
+  const AVAILABLE_HEIGHT = 650;
+  const sorted = [...recipe.steps].sort((a, b) => a.order_index - b.order_index);
+
+  let height = 0;
+  for (let i = 0; i < sorted.length; i++) {
+    const lines = Math.ceil(sorted[i].description.length / 55);
+    const stepH = lines * 21 + 10;
+    if (height + stepH > AVAILABLE_HEIGHT) {
+      // Step i doesn't fit — split here
+      if (i === 0) return { page1Steps: [], page2Steps: sorted };
+      return { page1Steps: sorted.slice(0, i), page2Steps: sorted.slice(i) };
+    }
+    height += stepH;
+  }
+  return null; // all steps fit on page 1
+}
+
+function pagesForRecipe(recipe: Recipe): number {
+  return splitSteps(recipe) !== null ? 2 : 1;
+}
+
 function buildRecipePage(
+  recipe: Recipe,
+  parentName: string | null,
+  photoSrc: string | null,
+  pageNum: number
+): string {
+  const split = splitSteps(recipe);
+  if (split) {
+    return (
+      buildRecipePagePart1(recipe, parentName, photoSrc, pageNum, split.page1Steps) +
+      buildRecipePagePart2(recipe, pageNum + 1, split.page2Steps)
+    );
+  }
+  return buildRecipePageSingle(recipe, parentName, photoSrc, pageNum);
+}
+
+function buildRecipePageSingle(
   recipe: Recipe,
   parentName: string | null,
   photoSrc: string | null,
@@ -206,6 +244,119 @@ function buildRecipePage(
   </div>`;
 }
 
+function buildRecipePagePart1(
+  recipe: Recipe,
+  parentName: string | null,
+  photoSrc: string | null,
+  pageNum: number,
+  page1Steps: Recipe['steps']
+): string {
+  const imgSrc = photoSrc ?? PLACEHOLDER_SVG;
+  const time = totalTime(recipe);
+  const diff = difficultyLabel[recipe.difficulty] ?? recipe.difficulty;
+  const diffColor = difficultyColor[recipe.difficulty] ?? '#8e8e93';
+  const cats = recipe.categories.map((c) => c.name).join(' · ');
+  const methods = recipe.methods.map((m) => m.name).join(' · ');
+
+  const variationTag = parentName
+    ? `<div class="variation-tag">Variación de: ${parentName}</div>`
+    : '';
+
+  const descriptionBlock = recipe.description
+    ? `<div class="recipe-description">"${recipe.description}"</div>`
+    : '';
+
+  const notesBlock = recipe.notes
+    ? `<div class="notes-block"><span class="notes-label">Notas del chef</span> ${recipe.notes}</div>`
+    : '';
+
+  const ingredientsHtml = recipe.ingredients
+    .sort((a, b) => a.order_index - b.order_index)
+    .map((i) => `<div class="ingredient-item">${i.quantity} ${i.unit} ${i.name}</div>`)
+    .join('');
+
+  const stepsHtml = page1Steps
+    .map((s, idx) => `
+      <div class="step-row">
+        <span class="step-num">${idx + 1}</span>
+        <span class="step-text">${s.description}</span>
+      </div>`)
+    .join('');
+
+  const stepsBlock = page1Steps.length > 0
+    ? `<div class="section-label">Pasos</div><div class="steps-list">${stepsHtml}</div><div class="continuation-note">Continúa en la siguiente página →</div>`
+    : `<div class="continuation-note">Ver pasos en la siguiente página →</div>`;
+
+  return `
+  <div class="recipe-page">
+    ${variationTag}
+
+    <div class="recipe-top">
+      <img class="recipe-photo" src="${imgSrc}" alt="${recipe.name}" />
+      <div class="recipe-right">
+        <div class="recipe-title-bar">
+          <div class="title-accent"></div>
+          <h1 class="recipe-title">${recipe.name.toUpperCase()}</h1>
+        </div>
+        <div class="recipe-meta">
+          ${time ? `<div class="meta-item"><span class="meta-label">Tiempo</span><span class="meta-value">${time}</span></div>` : ''}
+          <div class="meta-item"><span class="meta-label">Porciones</span><span class="meta-value">${recipe.base_servings}</span></div>
+          <div class="meta-item"><span class="meta-label">Dificultad</span><span class="meta-value" style="color:${diffColor}">${diff}</span></div>
+          ${cats ? `<div class="meta-item"><span class="meta-label">Categoría</span><span class="meta-value">${cats}</span></div>` : ''}
+          ${methods ? `<div class="meta-item"><span class="meta-label">Método</span><span class="meta-value">${methods}</span></div>` : ''}
+        </div>
+        ${descriptionBlock}
+        ${notesBlock}
+      </div>
+    </div>
+
+    <div class="section-divider"></div>
+
+    <div class="recipe-bottom">
+      <div class="recipe-col">
+        <div class="section-label">Ingredientes</div>
+        <div class="ingredients-list">${ingredientsHtml}</div>
+      </div>
+      <div class="recipe-col">
+        ${stepsBlock}
+      </div>
+    </div>
+
+    <div class="page-footer">${pageNum}</div>
+  </div>`;
+}
+
+function buildRecipePagePart2(recipe: Recipe, pageNum: number, page2Steps: Recipe['steps']): string {
+  const allSteps = recipe.steps.sort((a, b) => a.order_index - b.order_index);
+  const startIdx = allSteps.length - page2Steps.length;
+
+  const stepsHtml = page2Steps
+    .map((s, idx) => `
+      <div class="step-row">
+        <span class="step-num">${startIdx + idx + 1}</span>
+        <span class="step-text">${s.description}</span>
+      </div>`)
+    .join('');
+
+  return `
+  <div class="recipe-page">
+    <div class="continuation-banner">
+      <div class="title-accent"></div>
+      <h1 class="recipe-title">${recipe.name.toUpperCase()}</h1>
+      <span class="continuation-label">continuación</span>
+    </div>
+
+    <div class="section-divider"></div>
+
+    <div class="recipe-bottom-full">
+      <div class="section-label">Pasos</div>
+      <div class="steps-list">${stepsHtml}</div>
+    </div>
+
+    <div class="page-footer">${pageNum}</div>
+  </div>`;
+}
+
 // ─── Full HTML ───────────────────────────────────────────────────────────────
 
 function buildCookbookHTML(recipes: Recipe[], images: Record<string, string>, iconBase64: string | null): string {
@@ -245,7 +396,7 @@ function buildCookbookHTML(recipes: Recipe[], images: Record<string, string>, ic
   const recipePages = flat.map(({ recipe, parentName }) => {
     const page = buildRecipePage(recipe, parentName, images[recipe.id] ?? null, pageNum);
 
-    pageNum++;
+    pageNum += pagesForRecipe(recipe);
     return page;
   }).join('');
 
@@ -472,6 +623,35 @@ function buildCookbookHTML(recipes: Recipe[], images: Record<string, string>, ic
       padding-top: 1px;
     }
     .step-text { font-size: 13px; color: #3a3a3c; line-height: 1.6; }
+
+    /* ── Continuation page ── */
+    .continuation-banner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+    .continuation-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #FF9500;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      background: #fff8f0;
+      border: 1px solid #FF9500;
+      border-radius: 4px;
+      padding: 2px 8px;
+      margin-left: 4px;
+      flex-shrink: 0;
+    }
+    .continuation-note {
+      font-size: 12px;
+      color: #aeaeb2;
+      font-style: italic;
+      padding-top: 8px;
+    }
+    .recipe-bottom-full { padding-top: 4px; }
+    .recipe-bottom-full .steps-list { display: flex; flex-direction: column; gap: 10px; }
 
     /* ── Page footer ── */
     .page-footer {
