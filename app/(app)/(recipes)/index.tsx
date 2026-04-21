@@ -9,6 +9,7 @@ import {
   Platform,
   Alert,
   Image,
+  ActivityIndicator,
   useWindowDimensions,
 } from 'react-native';
 import { useRouter, Stack, useFocusEffect } from 'expo-router';
@@ -146,6 +147,7 @@ export default function RecipesScreen() {
   const gapTotal = 12 * (numCols - 1);
   const cardWidth = (gridWidth - 32 - gapTotal) / numCols;
   const [filterOpen, setFilterOpen] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const activeFilterCount = (selectedCategory ? 1 : 0) + (selectedMethod ? 1 : 0);
   const activeLabel = [
@@ -278,12 +280,17 @@ export default function RecipesScreen() {
               </Text>
               <Pressable
                 onPress={async () => {
-                  if (recipes.length === 0) return;
-                  // eslint-disable-next-line @typescript-eslint/no-require-imports
-                  const asset = Asset.fromModule(require('../../../assets/images/icon.png'));
-                  await asset.downloadAsync();
-                  const iconUri = asset.localUri ?? asset.uri ?? undefined;
-                  exportRecipesAsPDF(recipes, iconUri || undefined);
+                  if (recipes.length === 0 || pdfLoading) return;
+                  setPdfLoading(true);
+                  try {
+                    // eslint-disable-next-line @typescript-eslint/no-require-imports
+                    const asset = Asset.fromModule(require('../../../assets/images/icon.png'));
+                    await asset.downloadAsync();
+                    const iconUri = asset.localUri ?? asset.uri ?? undefined;
+                    await exportRecipesAsPDF(recipes, iconUri || undefined);
+                  } finally {
+                    setPdfLoading(false);
+                  }
                 }}
                 style={({ pressed }) => ({
                   flexDirection: 'row',
@@ -295,8 +302,12 @@ export default function RecipesScreen() {
                   cursor: 'pointer',
                 })}
               >
-                <IconSymbol name="doc.richtext" size={16} color={pc('secondaryLabel')} />
-                <Text style={{ fontSize: 15, color: pc('secondaryLabel') }}>PDF</Text>
+                {pdfLoading
+                  ? <ActivityIndicator size="small" color={pc('secondaryLabel')} />
+                  : <IconSymbol name="doc.richtext" size={16} color={pc('secondaryLabel')} />}
+                <Text style={{ fontSize: 15, color: pc('secondaryLabel') }}>
+                  {pdfLoading ? 'Generando…' : 'PDF'}
+                </Text>
               </Pressable>
               {SHOW_JSON_EXPORT && (
                 <Pressable
@@ -356,12 +367,17 @@ export default function RecipesScreen() {
                   </Pressable>
                   <Pressable
                     onPress={async () => {
-                      if (recipes.length === 0) return;
-                      // eslint-disable-next-line @typescript-eslint/no-require-imports
-                      const asset = Asset.fromModule(require('../../../assets/images/icon.png'));
-                      await asset.downloadAsync();
-                      const iconUri = asset.localUri ?? asset.uri ?? undefined;
-                      exportRecipesAsPDF(recipes, iconUri || undefined);
+                      if (recipes.length === 0 || pdfLoading) return;
+                      setPdfLoading(true);
+                      try {
+                        // eslint-disable-next-line @typescript-eslint/no-require-imports
+                        const asset = Asset.fromModule(require('../../../assets/images/icon.png'));
+                        await asset.downloadAsync();
+                        const iconUri = asset.localUri ?? asset.uri ?? undefined;
+                        await exportRecipesAsPDF(recipes, iconUri || undefined);
+                      } finally {
+                        setPdfLoading(false);
+                      }
                     }}
                     style={({ pressed }) => ({
                       flexDirection: 'row',
@@ -373,13 +389,15 @@ export default function RecipesScreen() {
                       borderCurve: 'continuous',
                       paddingVertical: 13,
                       paddingHorizontal: 16,
-                      opacity: pressed ? 0.85 : 1,
+                      opacity: pdfLoading ? 0.6 : pressed ? 0.85 : 1,
                       cursor: 'pointer',
                     })}
                   >
-                    <IconSymbol name="book.fill" size={18} color={pc('secondaryLabel')} />
+                    {pdfLoading
+                      ? <ActivityIndicator size="small" color={pc('secondaryLabel')} />
+                      : <IconSymbol name="book.fill" size={18} color={pc('secondaryLabel')} />}
                     <Text style={{ color: pc('secondaryLabel'), fontSize: 16, fontWeight: '600' }}>
-                      Cookbook
+                      {pdfLoading ? 'Generando…' : 'Cookbook'}
                     </Text>
                   </Pressable>
                 </View>
