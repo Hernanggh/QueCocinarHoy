@@ -75,6 +75,7 @@ export function WebNavBar({ state, descriptors, navigation }: BottomTabBarProps)
                 borderRadius: 8,
                 backgroundColor: isFocused ? '#FF950018' : 'transparent',
                 opacity: pressed ? 0.7 : 1,
+                cursor: 'pointer',
               })}
             >
               <Text
@@ -104,6 +105,7 @@ export function WebNavBar({ state, descriptors, navigation }: BottomTabBarProps)
           paddingHorizontal: 12,
           paddingVertical: 6,
           opacity: pressed ? 0.6 : 1,
+          cursor: 'pointer',
         })}
       >
         <IconSymbol

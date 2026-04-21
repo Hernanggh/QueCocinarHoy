@@ -118,6 +118,7 @@ export default function EventsScreen() {
               paddingVertical: 9,
               backgroundColor: selected ? '#FF950018' : 'transparent',
               opacity: pressed ? 0.7 : 1,
+              cursor: 'pointer',
             })}
           >
             {selected && (
@@ -202,6 +203,7 @@ export default function EventsScreen() {
                     paddingHorizontal: 16,
                     paddingVertical: 10,
                     opacity: pressed ? 0.7 : 1,
+                    cursor: 'pointer',
                   })}
                 >
                   <IconSymbol name="plus.circle.fill" size={18} color={pc('systemOrange')} />
@@ -223,7 +225,7 @@ export default function EventsScreen() {
           key={`grid-${numCols}`}
           columnWrapperStyle={{ gap: 12 }}
           contentInsetAdjustmentBehavior="automatic"
-          contentContainerStyle={{ padding: 16, paddingTop: isWeb ? 72 : 16, gap: 12, paddingBottom: 32 }}
+          contentContainerStyle={{ padding: 16, paddingTop: isWeb ? 80 : 16, gap: 12, paddingBottom: 32 }}
           style={{ flex: 1 }}
           ListHeaderComponent={
             !showSidebar ? (
@@ -242,6 +244,7 @@ export default function EventsScreen() {
                     paddingVertical: 13,
                     marginBottom: 12,
                     opacity: pressed ? 0.85 : 1,
+                    cursor: 'pointer',
                   })}
                 >
                   <IconSymbol name="plus" size={18} color="#fff" />
@@ -260,6 +263,7 @@ export default function EventsScreen() {
                     paddingHorizontal: 4,
                     paddingVertical: 10,
                     opacity: pressed ? 0.7 : 1,
+                    cursor: 'pointer',
                   })}
                 >
                   <IconSymbol

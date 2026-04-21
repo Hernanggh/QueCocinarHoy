@@ -26,6 +26,7 @@ import { EmptyState } from '@/components/empty-state';
 import { OfflineBanner } from '@/components/offline-banner';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { AddToEventSheet } from '@/components/add-to-event-sheet';
+import { Asset } from 'expo-asset';
 import { exportRecipesAsPDF, exportRecipesAsJSON } from '@/lib/recipes-export';
 import type { Recipe } from '@/types/app';
 
@@ -276,20 +277,13 @@ export default function RecipesScreen() {
                 Cookbook
               </Text>
               <Pressable
-                onPress={() => {
+                onPress={async () => {
                   if (recipes.length === 0) return;
                   // eslint-disable-next-line @typescript-eslint/no-require-imports
-                  const iconMod = require('../../../assets/images/icon.png');
-                  let iconUri: string | undefined;
-                  if (typeof iconMod === 'string') {
-                    iconUri = iconMod;
-                  } else if (typeof iconMod === 'object' && iconMod !== null) {
-                    iconUri = iconMod.uri ?? iconMod.default?.uri ?? iconMod.default;
-                  }
-                  if (iconUri && !iconUri.startsWith('http') && typeof window !== 'undefined') {
-                    iconUri = `${window.location.origin}${iconUri.startsWith('/') ? iconUri : '/' + iconUri}`;
-                  }
-                  exportRecipesAsPDF(recipes, iconUri);
+                  const asset = Asset.fromModule(require('../../../assets/images/icon.png'));
+                  await asset.downloadAsync();
+                  const iconUri = asset.localUri ?? asset.uri ?? undefined;
+                  exportRecipesAsPDF(recipes, iconUri || undefined);
                 }}
                 style={({ pressed }) => ({
                   flexDirection: 'row',
@@ -298,6 +292,7 @@ export default function RecipesScreen() {
                   paddingHorizontal: 16,
                   paddingVertical: 9,
                   opacity: pressed ? 0.6 : 1,
+                  cursor: 'pointer',
                 })}
               >
                 <IconSymbol name="doc.richtext" size={16} color={pc('secondaryLabel')} />
@@ -331,7 +326,7 @@ export default function RecipesScreen() {
           key={`grid-${numCols}`}
           columnWrapperStyle={{ gap: 12 }}
           contentInsetAdjustmentBehavior="automatic"
-          contentContainerStyle={{ padding: 16, paddingTop: isWeb ? 72 : 16, gap: 12, paddingBottom: 32 }}
+          contentContainerStyle={{ padding: 16, paddingTop: isWeb ? 80 : 16, gap: 12, paddingBottom: 32 }}
           style={{ flex: 1 }}
           ListHeaderComponent={
             !showSidebar ? (
@@ -351,6 +346,7 @@ export default function RecipesScreen() {
                       borderCurve: 'continuous',
                       paddingVertical: 13,
                       opacity: pressed ? 0.85 : 1,
+                      cursor: 'pointer',
                     })}
                   >
                     <IconSymbol name="plus" size={18} color="#fff" />
@@ -359,10 +355,13 @@ export default function RecipesScreen() {
                     </Text>
                   </Pressable>
                   <Pressable
-                    onPress={() => {
+                    onPress={async () => {
                       if (recipes.length === 0) return;
-                      // En mobile, require devuelve un número (asset ID); no se puede usar como URI
-                      exportRecipesAsPDF(recipes);
+                      // eslint-disable-next-line @typescript-eslint/no-require-imports
+                      const asset = Asset.fromModule(require('../../../assets/images/icon.png'));
+                      await asset.downloadAsync();
+                      const iconUri = asset.localUri ?? asset.uri ?? undefined;
+                      exportRecipesAsPDF(recipes, iconUri || undefined);
                     }}
                     style={({ pressed }) => ({
                       flexDirection: 'row',
@@ -375,6 +374,7 @@ export default function RecipesScreen() {
                       paddingVertical: 13,
                       paddingHorizontal: 16,
                       opacity: pressed ? 0.85 : 1,
+                      cursor: 'pointer',
                     })}
                   >
                     <IconSymbol name="book.fill" size={18} color={pc('secondaryLabel')} />
@@ -393,6 +393,7 @@ export default function RecipesScreen() {
                     paddingHorizontal: 4,
                     paddingVertical: 10,
                     opacity: pressed ? 0.7 : 1,
+                    cursor: 'pointer',
                   })}
                 >
                   <IconSymbol
@@ -567,12 +568,14 @@ export default function RecipesScreen() {
                     });
                   }}
                   hitSlop={8}
+                  style={{ cursor: 'pointer' } as any}
                 >
                   <IconSymbol name="pencil" size={20} color={pc('systemOrange')} />
                 </Pressable>
                 <Pressable
                   onPress={() => handleWebDelete(selectedRecipe.id, selectedRecipe.photo_url)}
                   hitSlop={8}
+                  style={{ cursor: 'pointer' } as any}
                 >
                   <IconSymbol name="trash" size={20} color={pc('systemRed')} />
                 </Pressable>
@@ -583,10 +586,11 @@ export default function RecipesScreen() {
                     )
                   }
                   hitSlop={8}
+                  style={{ cursor: 'pointer' } as any}
                 >
                   <IconSymbol name="square.and.arrow.up" size={20} color={pc('systemOrange')} />
                 </Pressable>
-                <Pressable onPress={() => setSelectedRecipeId(null)} hitSlop={8}>
+                <Pressable onPress={() => setSelectedRecipeId(null)} hitSlop={8} style={{ cursor: 'pointer' } as any}>
                   <IconSymbol name="xmark" size={20} color={pc('secondaryLabel')} />
                 </Pressable>
               </View>
@@ -597,6 +601,7 @@ export default function RecipesScreen() {
                   alignSelf: 'flex-start',
                   flexDirection: 'row',
                   alignItems: 'center',
+                  cursor: 'pointer',
                   gap: 6,
                   paddingHorizontal: 12,
                   paddingVertical: 6,

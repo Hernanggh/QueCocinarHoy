@@ -9,13 +9,12 @@ import type { Recipe } from '@/types/app';
 async function fetchImageAsBase64(url: string): Promise<string | null> {
   try {
     const response = await fetch(url);
-    const blob = await response.blob();
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
+    if (!response.ok) return null;
+    const buf = await response.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    const binary = Array.from(bytes, (b) => String.fromCharCode(b)).join('');
+    const contentType = response.headers.get('content-type') ?? 'image/jpeg';
+    return `data:${contentType};base64,${btoa(binary)}`;
   } catch {
     return null;
   }
@@ -34,6 +33,32 @@ const difficultyColor: Record<string, string> = {
 };
 
 const PLACEHOLDER_SVG = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Crect width='80' height='80' fill='%23f2f2f7' rx='10'/%3E%3Ctext x='40' y='48' font-size='32' text-anchor='middle' fill='%23aeaeb2'%3E🍽%3C/text%3E%3C/svg%3E`;
+
+// Crops a base64 image to the target aspect ratio (center crop) using the browser Canvas API.
+function cropToAspect(base64: string, targetW: number, targetH: number): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const targetAspect = targetW / targetH;
+      const imgAspect = img.naturalWidth / img.naturalHeight;
+      let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
+      if (imgAspect > targetAspect) {
+        sw = Math.round(img.naturalHeight * targetAspect);
+        sx = Math.round((img.naturalWidth - sw) / 2);
+      } else if (imgAspect < targetAspect) {
+        sh = Math.round(img.naturalWidth / targetAspect);
+        sy = Math.round((img.naturalHeight - sh) / 2);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = sw;
+      canvas.height = sh;
+      canvas.getContext('2d')!.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+      resolve(canvas.toDataURL('image/jpeg', 0.92));
+    };
+    img.onerror = () => resolve(base64);
+    img.src = base64;
+  });
+}
 
 function currentMonthYear(): string {
   return new Date().toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
@@ -209,7 +234,7 @@ function buildRecipePageSingle(
     ${variationTag}
 
     <div class="recipe-top">
-      <img class="recipe-photo" src="${imgSrc}" alt="${recipe.name}" />
+      <img class="recipe-photo" src="${imgSrc}" alt="" />
       <div class="recipe-right">
         <div class="recipe-title-bar">
           <div class="title-accent"></div>
@@ -292,7 +317,7 @@ function buildRecipePagePart1(
     ${variationTag}
 
     <div class="recipe-top">
-      <img class="recipe-photo" src="${imgSrc}" alt="${recipe.name}" />
+      <img class="recipe-photo" src="${imgSrc}" alt="" />
       <div class="recipe-right">
         <div class="recipe-title-bar">
           <div class="title-accent"></div>
@@ -359,13 +384,19 @@ function buildRecipePagePart2(recipe: Recipe, pageNum: number, page2Steps: Recip
 
 // ─── Full HTML ───────────────────────────────────────────────────────────────
 
-function buildCookbookHTML(recipes: Recipe[], images: Record<string, string>, iconBase64: string | null): string {
-  const flat = flattenRecipes(recipes);
-  const totalRecipes = recipes.length;
+function buildCookbookHTML(recipes: Recipe[], images: Record<string, string>, iconBase64: string | null, iconUri?: string): string {
+  const sorted = [...recipes].sort((a, b) => {
+    const ai = CATEGORY_ORDER.indexOf(priorityCat(a));
+    const bi = CATEGORY_ORDER.indexOf(priorityCat(b));
+    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+  });
+  const flat = flattenRecipes(sorted);
+  const totalRecipes = sorted.length;
   const month = currentMonthYear();
 
-  const logoHTML = iconBase64
-    ? `<img class="cover-logo-img" src="${iconBase64}" alt="Logo" />`
+  const logoSrc = iconBase64 ?? iconUri ?? null;
+  const logoHTML = logoSrc
+    ? `<img class="cover-logo-img" src="${logoSrc}" alt="Logo" />`
     : `<div class="cover-logo">🍳</div>`;
 
   // Portada
@@ -387,7 +418,7 @@ function buildCookbookHTML(recipes: Recipe[], images: Record<string, string>, ic
   const indexHTML = `
   <div class="index-container">
     <div class="index-title">Índice</div>
-    ${buildIndex(recipes)}
+    ${buildIndex(sorted)}
     <div class="page-footer">2</div>
   </div>`;
 
@@ -406,10 +437,37 @@ function buildCookbookHTML(recipes: Recipe[], images: Record<string, string>, ic
   <meta charset="utf-8" />
   <title>Mis Recetas — QuéCocinarHoy</title>
   <style>
-    @page { size: A4; margin: 0; }
+    @page { size: A4; margin: 12mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    .print-banner {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 20px;
+      background: #fff8f0;
+      border-bottom: 2px solid #FF9500;
+      font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+      font-size: 14px;
+      color: #1c1c1e;
+    }
+    .print-banner button {
+      margin-left: auto;
+      padding: 8px 18px;
+      background: #FF9500;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    @media print { .print-banner { display: none !important; } }
     html, body {
-      width: 210mm;
+      width: 100%;
       font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
       color: #1c1c1e;
       background: #fff;
@@ -419,8 +477,8 @@ function buildCookbookHTML(recipes: Recipe[], images: Record<string, string>, ic
 
     /* ── Cover ── */
     .cover-page {
-      width: 210mm;
-      min-height: 297mm;
+      width: 100%;
+      min-height: 273mm;
       display: flex;
       flex-direction: column;
       page-break-after: always;
@@ -452,8 +510,8 @@ function buildCookbookHTML(recipes: Recipe[], images: Record<string, string>, ic
 
     /* ── Index ── */
     .index-container {
-      width: 210mm;
-      min-height: 297mm;
+      width: 100%;
+      min-height: 273mm;
       padding: 40px 44px 44px;
       page-break-after: always;
       border: 14px solid #FF9500;
@@ -490,8 +548,8 @@ function buildCookbookHTML(recipes: Recipe[], images: Record<string, string>, ic
 
     /* ── Recipe page ── */
     .recipe-page {
-      width: 210mm;
-      min-height: 297mm;
+      width: 100%;
+      min-height: 273mm;
       padding: 24px 28px 20px;
       page-break-after: always;
       border: 14px solid #FF9500;
@@ -536,9 +594,10 @@ function buildCookbookHTML(recipes: Recipe[], images: Record<string, string>, ic
     .recipe-photo {
       width: 55%;
       height: 100%;
-      object-fit: cover;
+      object-fit: fill;
       border-radius: 8px;
       flex-shrink: 0;
+      display: block;
     }
     .recipe-right {
       flex: 1;
@@ -668,6 +727,10 @@ function buildCookbookHTML(recipes: Recipe[], images: Record<string, string>, ic
   </style>
 </head>
 <body>
+  <div class="print-banner">
+    <span>📖 Mis Recetas — QuéCocinarHoy</span>
+    <button onclick="window.print()">🖨&nbsp; Imprimir / Guardar PDF</button>
+  </div>
   ${coverHTML}
   ${indexHTML}
   ${recipePages}
@@ -694,20 +757,97 @@ export async function exportRecipesAsPDF(recipes: Recipe[], iconUri?: string): P
   let iconBase64: string | null = null;
   if (iconUri) {
     iconBase64 = await fetchImageAsBase64(iconUri);
+    // Fallback: Image + Canvas without crossOrigin (same-origin assets don't need it,
+    // and setting crossOrigin on a URL without CORS headers poisons the browser cache on Safari)
+    if (!iconBase64) {
+      iconBase64 = await new Promise<string | null>((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const c = document.createElement('canvas');
+            c.width = img.naturalWidth || 512;
+            c.height = img.naturalHeight || 512;
+            c.getContext('2d')!.drawImage(img, 0, 0);
+            resolve(c.toDataURL('image/png'));
+          } catch {
+            resolve(null);
+          }
+        };
+        img.onerror = () => resolve(null);
+        // Cache-bust to avoid serving a poisoned CORS-failed response from earlier attempts
+        img.src = `${iconUri}${iconUri.includes('?') ? '&' : '?'}_cb=${Date.now()}`;
+      });
+    }
   }
 
-  const html = buildCookbookHTML(recipes, images, iconBase64);
-
   if (Platform.OS === 'web') {
-    const win = window.open('', '_blank');
-    if (win) {
-      win.document.write(html);
-      win.document.close();
-      setTimeout(() => win.print(), 800);
+    // Pre-crop images to the recipe photo aspect ratio (55% of 710px × 280px ≈ 391:280)
+    // so html2canvas renders them at full resolution without needing object-fit.
+    const croppedImages: Record<string, string> = {};
+    await Promise.all(
+      Object.entries(images).map(async ([id, b64]) => {
+        croppedImages[id] = await cropToAspect(b64, 391, 280);
+      })
+    );
+
+    const html = buildCookbookHTML(recipes, croppedImages, iconBase64, iconUri);
+
+    // Render HTML (with its embedded CSS) in a hidden iframe so styles apply correctly
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;height:1px;border:none;visibility:hidden;';
+    document.body.appendChild(iframe);
+
+    await new Promise<void>((resolve) => {
+      iframe.onload = () => resolve();
+      iframe.srcdoc = html;
+    });
+
+    // Remove the print banner before capturing
+    iframe.contentDocument?.querySelector('.print-banner')?.remove();
+
+    const [{ buildPDFFromJpegs }, html2canvasMod] = await Promise.all([
+      import('./pdf-minimal'),
+      import('html2canvas'),
+    ]);
+    const html2canvas = (html2canvasMod as any).default ?? html2canvasMod;
+
+    const pages = Array.from(
+      iframe.contentDocument!.querySelectorAll('.cover-page, .index-container, .recipe-page')
+    ) as HTMLElement[];
+
+    const jpegs: Uint8Array[] = [];
+    for (const pageEl of pages) {
+      pageEl.style.cssText += ';width:794px;min-height:unset;height:1123px;overflow:hidden;';
+      const canvas = await html2canvas(pageEl, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        width: 794,
+        height: 1123,
+        windowWidth: 794,
+        logging: false,
+        backgroundColor: '#ffffff',
+      });
+      const b64 = canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
+      jpegs.push(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)));
     }
+
+    document.body.removeChild(iframe);
+
+    const pdfBytes = buildPDFFromJpegs(jpegs);
+    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Mis-Recetas-QueCocinarHoy-${new Date().toISOString().slice(0, 10)}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
     return;
   }
 
+  const html = buildCookbookHTML(recipes, images, iconBase64, iconUri);
   const { uri } = await Print.printToFileAsync({ html, width: 595, height: 842 });
   const canShare = await Sharing.isAvailableAsync();
   if (canShare) {

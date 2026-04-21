@@ -6,6 +6,24 @@ import type { Event, Recipe } from '@/types/app';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
+function cropToSquare(base64: string): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const size = Math.min(img.naturalWidth, img.naturalHeight);
+      const sx = Math.round((img.naturalWidth - size) / 2);
+      const sy = Math.round((img.naturalHeight - size) / 2);
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      canvas.getContext('2d')!.drawImage(img, sx, sy, size, size, 0, 0, size, size);
+      resolve(canvas.toDataURL('image/jpeg', 0.92));
+    };
+    img.onerror = () => resolve(base64);
+    img.src = base64;
+  });
+}
+
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr + 'T12:00:00');
   return date.toLocaleDateString('es-MX', {
@@ -51,8 +69,9 @@ const PLACEHOLDER_SVG = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000
 function recipeRow(recipe: Recipe, photoSrc: string | null, compact: boolean): string {
   const photoSize = compact ? 56 : 72;
 
-  const imgSrc = photoSrc ?? PLACEHOLDER_SVG;
-  const photoHtml = `<img class="recipe-photo" src="${imgSrc}" width="${photoSize}" height="${photoSize}" alt="${recipe.name}" />`;
+  const photoHtml = photoSrc
+    ? `<img class="recipe-photo" src="${photoSrc}" width="${photoSize}" height="${photoSize}" alt="" />`
+    : `<div class="recipe-photo" style="width:${photoSize}px;height:${photoSize}px;background:#e5e5ea;border-radius:8px"></div>`;
 
   const descriptionHtml = recipe.description
     ? `<div class="recipe-description">${recipe.description}</div>`
@@ -119,11 +138,38 @@ function buildHTML(event: Event, images: Record<string, string>): string {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${event.name}</title>
   <style>
-    @page { size: A4; margin: 0; }
+    @page { size: A4; margin: 12mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    .print-banner {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 20px;
+      background: #fff8f0;
+      border-bottom: 2px solid #FF9500;
+      font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+      font-size: 14px;
+      color: #1c1c1e;
+    }
+    .print-banner button {
+      margin-left: auto;
+      padding: 8px 18px;
+      background: #FF9500;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    @media print { .print-banner { display: none !important; } }
 
     html, body {
-      width: 210mm;
+      width: 100%;
       font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
       color: #1c1c1e;
       background: #fff;
@@ -236,8 +282,9 @@ function buildHTML(event: Event, images: Record<string, string>): string {
     }
     .recipe-photo {
       border-radius: 8px;
-      object-fit: cover;
+      object-fit: fill;
       flex-shrink: 0;
+      display: block;
       display: block;
     }
     .recipe-info {
@@ -306,6 +353,10 @@ function buildHTML(event: Event, images: Record<string, string>): string {
   </style>
 </head>
 <body>
+  <div class="print-banner">
+    <span>📅 Menú del evento — QuéCocinarHoy</span>
+    <button onclick="window.print()">🖨&nbsp; Imprimir / Guardar PDF</button>
+  </div>
 
   <div class="header">
     <div class="header-label">Menú especial</div>
@@ -346,20 +397,82 @@ export async function generateAndShareEventPDF(event: Event): Promise<void> {
     })
   );
 
-  const html = buildHTML(event, images);
-
   if (Platform.OS === 'web') {
-    const win = window.open('', '_blank');
-    if (win) {
-      win.document.write(html);
-      win.document.close();
-      // Small delay to let images load before printing
-      setTimeout(() => win.print(), 800);
+    // Pre-crop thumbnails to square so html2canvas renders them at full resolution.
+    const croppedImages: Record<string, string> = {};
+    await Promise.all(
+      Object.entries(images).map(async ([id, b64]) => {
+        croppedImages[id] = await cropToSquare(b64);
+      })
+    );
+
+    const html = buildHTML(event, croppedImages);
+
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;height:1px;border:none;visibility:hidden;';
+    document.body.appendChild(iframe);
+
+    await new Promise<void>((resolve) => {
+      iframe.onload = () => resolve();
+      iframe.srcdoc = html;
+    });
+
+    iframe.contentDocument?.querySelector('.print-banner')?.remove();
+
+    const [{ buildPDFFromJpegs }, html2canvasMod] = await Promise.all([
+      import('./pdf-minimal'),
+      import('html2canvas'),
+    ]);
+    const html2canvas = (html2canvasMod as any).default ?? html2canvasMod;
+
+    const body = iframe.contentDocument!.body;
+    body.style.margin = '0';
+    const canvas = await html2canvas(body, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      width: 794,
+      windowWidth: 794,
+      logging: false,
+      backgroundColor: '#ffffff',
+    });
+
+    document.body.removeChild(iframe);
+
+    // Split tall canvas into A4-sized slices
+    const A4W_PX = canvas.width;
+    const A4H_PX = Math.round(canvas.width * (841.89 / 595.28));
+    const jpegs: Uint8Array[] = [];
+    let y = 0;
+    while (y < canvas.height) {
+      const sliceH = Math.min(A4H_PX, canvas.height - y);
+      const slice = document.createElement('canvas');
+      slice.width = A4W_PX;
+      slice.height = A4H_PX;
+      const ctx = slice.getContext('2d')!;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, A4W_PX, A4H_PX);
+      ctx.drawImage(canvas, 0, y, A4W_PX, sliceH, 0, 0, A4W_PX, sliceH);
+      const b64 = slice.toDataURL('image/jpeg', 0.92).split(',')[1];
+      jpegs.push(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)));
+      y += A4H_PX;
     }
+
+    const pdfBytes = buildPDFFromJpegs(jpegs);
+    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Menu-${event.name.replace(/\s+/g, '-')}-${new Date().toISOString().slice(0, 10)}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
     return;
   }
 
-  // Mobile: generate PDF file and open share sheet
+  // Native: generate PDF file and open share sheet
+  const html = buildHTML(event, images);
   const { uri } = await Print.printToFileAsync({ html, width: 595, height: 842 });
   const canShare = await Sharing.isAvailableAsync();
   if (canShare) {
