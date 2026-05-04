@@ -1,6 +1,6 @@
 import { pc } from '@/lib/colors';
 import { useState } from 'react';
-import { View, Pressable, Alert, ScrollView } from 'react-native';
+import { View, Pressable, Alert, ScrollView, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { generateAndShareEventPDF } from '@/lib/event-pdf';
 import { supabase } from '@/lib/supabase';
@@ -78,7 +78,14 @@ export default function EventDetailScreen() {
           onRecipePress={(recipeId) => router.push(`/recipe/${recipeId}` as any)}
           onRemoveRecipe={handleRemoveRecipe}
           onShoppingList={() => setSheetVisible(true)}
-          onSharePDF={() => generateAndShareEventPDF(event)}
+          onSharePDF={async () => {
+            try {
+              await generateAndShareEventPDF(event);
+            } catch {
+              if (Platform.OS === 'web') window.alert('No se pudo generar el PDF. Intenta de nuevo.');
+              else Alert.alert('Error', 'No se pudo generar el PDF. Intenta de nuevo.');
+            }
+          }}
         />
       </ScrollView>
 

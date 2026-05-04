@@ -288,6 +288,9 @@ export default function RecipesScreen() {
                     await asset.downloadAsync();
                     const iconUri = asset.localUri ?? asset.uri ?? undefined;
                     await exportRecipesAsPDF(recipes, iconUri || undefined);
+                  } catch {
+                    if (Platform.OS === 'web') window.alert('No se pudo generar el PDF. Intenta de nuevo.');
+                    else Alert.alert('Error', 'No se pudo generar el PDF. Intenta de nuevo.');
                   } finally {
                     setPdfLoading(false);
                   }
@@ -375,6 +378,9 @@ export default function RecipesScreen() {
                         await asset.downloadAsync();
                         const iconUri = asset.localUri ?? asset.uri ?? undefined;
                         await exportRecipesAsPDF(recipes, iconUri || undefined);
+                      } catch {
+                        if (Platform.OS === 'web') window.alert('No se pudo generar el PDF. Intenta de nuevo.');
+                        else Alert.alert('Error', 'No se pudo generar el PDF. Intenta de nuevo.');
                       } finally {
                         setPdfLoading(false);
                       }
@@ -599,9 +605,11 @@ export default function RecipesScreen() {
                 </Pressable>
                 <Pressable
                   onPress={() =>
-                    shareRecipeAsImage(selectedRecipe).catch((e) =>
-                      console.error('[shareRecipe] top-level error:', e)
-                    )
+                    shareRecipeAsImage(selectedRecipe).catch((e) => {
+                      console.error('[shareRecipe] top-level error:', e);
+                      if (Platform.OS === 'web') window.alert('No se pudo compartir la receta. Intenta de nuevo.');
+                      else Alert.alert('Error', 'No se pudo compartir la receta. Intenta de nuevo.');
+                    })
                   }
                   hitSlop={8}
                   style={{ cursor: 'pointer' } as any}

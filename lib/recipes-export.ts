@@ -6,8 +6,10 @@ import type { Recipe } from '@/types/app';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-const esc = (s: string | null | undefined): string =>
-  s ? s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') : '';
+const esc = (s: string | number | null | undefined): string => {
+  if (s == null || s === '') return '';
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+};
 
 async function fetchImageAsBase64(url: string): Promise<string | null> {
   try {
