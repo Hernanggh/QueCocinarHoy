@@ -8,22 +8,26 @@ type LookupData = {
   loading: boolean;
 };
 
+let cachedCategories: Category[] | null = null;
+let cachedMethods: CookingMethod[] | null = null;
+
 export function useLookupData(): LookupData {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [methods, setMethods] = useState<CookingMethod[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState<Category[]>(cachedCategories ?? []);
+  const [methods, setMethods] = useState<CookingMethod[]>(cachedMethods ?? []);
+  const [loading, setLoading] = useState(cachedCategories === null);
 
   useEffect(() => {
-    async function fetch() {
+    if (cachedCategories !== null) return;
+    async function fetchLookups() {
       const [catRes, methRes] = await Promise.all([
         supabase.from('categories').select('*').order('id'),
         supabase.from('cooking_methods').select('*').order('id'),
       ]);
-      if (catRes.data) setCategories(catRes.data);
-      if (methRes.data) setMethods(methRes.data);
+      if (catRes.data) { cachedCategories = catRes.data; setCategories(catRes.data); }
+      if (methRes.data) { cachedMethods = methRes.data; setMethods(methRes.data); }
       setLoading(false);
     }
-    fetch();
+    fetchLookups();
   }, []);
 
   return { categories, methods, loading };
