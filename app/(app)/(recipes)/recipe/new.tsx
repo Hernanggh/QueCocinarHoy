@@ -60,6 +60,8 @@ export default function RecipeFormScreen() {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [existingPhotoPath, setExistingPhotoPath] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [origIngredientIds, setOrigIngredientIds] = useState<string[]>([]);
+  const [origStepIds, setOrigStepIds] = useState<string[]>([]);
 
   // Sauce options: recetas con categoría "Salsas y aderezos" (excluir la receta actual en edición)
   const sauceCategory = categories.find((c) => c.name === 'Salsas y aderezos');
@@ -101,9 +103,11 @@ export default function RecipeFormScreen() {
           unit: ing.unit,
         }))
       );
+      setOrigIngredientIds(recipe.ingredients.map((i) => i.id));
     }
     if (recipe.steps.length > 0) {
       setSteps(recipe.steps.map((s) => ({ id: s.id, description: s.description })));
+      setOrigStepIds(recipe.steps.map((s) => s.id));
     }
   }, [isEdit, recipeId, recipes]);
 
@@ -324,56 +328,139 @@ export default function RecipeFormScreen() {
         }
       }
 
-      // Replace join table data
-      await supabase.from('recipe_categories').delete().eq('recipe_id', finalRecipeId);
-      await supabase.from('recipe_methods').delete().eq('recipe_id', finalRecipeId);
-      await supabase.from('recipe_sauces').delete().eq('recipe_id', finalRecipeId);
-      await supabase.from('ingredients').delete().eq('recipe_id', finalRecipeId);
-      await supabase.from('steps').delete().eq('recipe_id', finalRecipeId);
-
-      if (selectedCategories.length > 0) {
-        await supabase.from('recipe_categories').insert(
-          selectedCategories.map((category_id) => ({ recipe_id: finalRecipeId, category_id }))
-        );
-      }
-      if (selectedMethods.length > 0) {
-        await supabase.from('recipe_methods').insert(
-          selectedMethods.map((method_id) => ({ recipe_id: finalRecipeId, method_id }))
-        );
-      }
-      if (selectedSauceIds.length > 0) {
-        await supabase.from('recipe_sauces').insert(
-          selectedSauceIds.map((sauce_recipe_id) => ({
-            recipe_id: finalRecipeId,
-            sauce_recipe_id,
-          }))
-        );
-      }
-
       const validIngredients = ingredients.filter(
         (i) => i.name.trim() && i.quantity.trim() && i.unit.trim()
       );
-      if (validIngredients.length > 0) {
-        await supabase.from('ingredients').insert(
-          validIngredients.map((ing, idx) => ({
-            recipe_id: finalRecipeId,
-            name: ing.name.trim(),
-            quantity: parseFloat(ing.quantity) || 0,
-            unit: ing.unit.trim(),
-            order_index: idx,
-          }))
-        );
-      }
-
       const validSteps = steps.filter((s) => s.description.trim());
-      if (validSteps.length > 0) {
-        await supabase.from('steps').insert(
-          validSteps.map((step, idx) => ({
-            recipe_id: finalRecipeId,
-            description: step.description.trim(),
-            order_index: idx,
-          }))
-        );
+
+      if (isEdit) {
+        // Join tables: upsert selected (insert+ignore conflicts), delete deselected
+        if (selectedCategories.length > 0) {
+          await supabase.from('recipe_categories').upsert(
+            selectedCategories.map((category_id) => ({ recipe_id: finalRecipeId, category_id })),
+            { onConflict: 'recipe_id,category_id', ignoreDuplicates: true }
+          );
+          await supabase.from('recipe_categories').delete().eq('recipe_id', finalRecipeId)
+            .not('category_id', 'in', `(${selectedCategories.join(',')})`);
+        } else {
+          await supabase.from('recipe_categories').delete().eq('recipe_id', finalRecipeId);
+        }
+        if (selectedMethods.length > 0) {
+          await supabase.from('recipe_methods').upsert(
+            selectedMethods.map((method_id) => ({ recipe_id: finalRecipeId, method_id })),
+            { onConflict: 'recipe_id,method_id', ignoreDuplicates: true }
+          );
+          await supabase.from('recipe_methods').delete().eq('recipe_id', finalRecipeId)
+            .not('method_id', 'in', `(${selectedMethods.join(',')})`);
+        } else {
+          await supabase.from('recipe_methods').delete().eq('recipe_id', finalRecipeId);
+        }
+        if (selectedSauceIds.length > 0) {
+          await supabase.from('recipe_sauces').upsert(
+            selectedSauceIds.map((sauce_recipe_id) => ({ recipe_id: finalRecipeId, sauce_recipe_id })),
+            { onConflict: 'recipe_id,sauce_recipe_id', ignoreDuplicates: true }
+          );
+          await supabase.from('recipe_sauces').delete().eq('recipe_id', finalRecipeId)
+            .not('sauce_recipe_id', 'in', `(${selectedSauceIds.join(',')})`);
+        } else {
+          await supabase.from('recipe_sauces').delete().eq('recipe_id', finalRecipeId);
+        }
+
+        // Content tables: upsert existing, insert new, delete removed — in that order
+        const keptIngIds = validIngredients.filter((i) => !i.id.startsWith('local_')).map((i) => i.id);
+        const upsertIngs = validIngredients.filter((i) => !i.id.startsWith('local_'));
+        const insertIngs = validIngredients.filter((i) => i.id.startsWith('local_'));
+        if (upsertIngs.length > 0) {
+          await supabase.from('ingredients').upsert(
+            upsertIngs.map((ing) => ({
+              id: ing.id,
+              recipe_id: finalRecipeId,
+              name: ing.name.trim(),
+              quantity: parseFloat(ing.quantity) || 0,
+              unit: ing.unit.trim(),
+              order_index: validIngredients.findIndex((x) => x.id === ing.id),
+            }))
+          );
+        }
+        if (insertIngs.length > 0) {
+          await supabase.from('ingredients').insert(
+            insertIngs.map((ing) => ({
+              recipe_id: finalRecipeId,
+              name: ing.name.trim(),
+              quantity: parseFloat(ing.quantity) || 0,
+              unit: ing.unit.trim(),
+              order_index: validIngredients.findIndex((x) => x.id === ing.id),
+            }))
+          );
+        }
+        const removedIngIds = origIngredientIds.filter((id) => !keptIngIds.includes(id));
+        if (removedIngIds.length > 0) {
+          await supabase.from('ingredients').delete().in('id', removedIngIds);
+        }
+
+        const keptStepIds = validSteps.filter((s) => !s.id.startsWith('local_')).map((s) => s.id);
+        const upsertSteps = validSteps.filter((s) => !s.id.startsWith('local_'));
+        const insertSteps = validSteps.filter((s) => s.id.startsWith('local_'));
+        if (upsertSteps.length > 0) {
+          await supabase.from('steps').upsert(
+            upsertSteps.map((step) => ({
+              id: step.id,
+              recipe_id: finalRecipeId,
+              description: step.description.trim(),
+              order_index: validSteps.findIndex((x) => x.id === step.id),
+            }))
+          );
+        }
+        if (insertSteps.length > 0) {
+          await supabase.from('steps').insert(
+            insertSteps.map((step) => ({
+              recipe_id: finalRecipeId,
+              description: step.description.trim(),
+              order_index: validSteps.findIndex((x) => x.id === step.id),
+            }))
+          );
+        }
+        const removedStepIds = origStepIds.filter((id) => !keptStepIds.includes(id));
+        if (removedStepIds.length > 0) {
+          await supabase.from('steps').delete().in('id', removedStepIds);
+        }
+      } else {
+        // Create mode: simple inserts
+        if (selectedCategories.length > 0) {
+          await supabase.from('recipe_categories').insert(
+            selectedCategories.map((category_id) => ({ recipe_id: finalRecipeId, category_id }))
+          );
+        }
+        if (selectedMethods.length > 0) {
+          await supabase.from('recipe_methods').insert(
+            selectedMethods.map((method_id) => ({ recipe_id: finalRecipeId, method_id }))
+          );
+        }
+        if (selectedSauceIds.length > 0) {
+          await supabase.from('recipe_sauces').insert(
+            selectedSauceIds.map((sauce_recipe_id) => ({ recipe_id: finalRecipeId, sauce_recipe_id }))
+          );
+        }
+        if (validIngredients.length > 0) {
+          await supabase.from('ingredients').insert(
+            validIngredients.map((ing, idx) => ({
+              recipe_id: finalRecipeId,
+              name: ing.name.trim(),
+              quantity: parseFloat(ing.quantity) || 0,
+              unit: ing.unit.trim(),
+              order_index: idx,
+            }))
+          );
+        }
+        if (validSteps.length > 0) {
+          await supabase.from('steps').insert(
+            validSteps.map((step, idx) => ({
+              recipe_id: finalRecipeId,
+              description: step.description.trim(),
+              order_index: idx,
+            }))
+          );
+        }
       }
 
       router.back();
