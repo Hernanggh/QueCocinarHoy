@@ -6,6 +6,9 @@ import type { Event, Recipe } from '@/types/app';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
+const esc = (s: string | null | undefined): string =>
+  s ? s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') : '';
+
 function cropToSquare(base64: string): Promise<string> {
   return new Promise((resolve) => {
     const img = new Image();
@@ -74,14 +77,14 @@ function recipeRow(recipe: Recipe, photoSrc: string | null, compact: boolean): s
     : `<div class="recipe-photo" style="width:${photoSize}px;height:${photoSize}px;background:#e5e5ea;border-radius:8px"></div>`;
 
   const descriptionHtml = recipe.description
-    ? `<div class="recipe-description">${recipe.description}</div>`
+    ? `<div class="recipe-description">${esc(recipe.description)}</div>`
     : '';
 
   return `
   <div class="recipe-row${compact ? ' compact' : ''}">
     ${photoHtml}
     <div class="recipe-info">
-      <div class="recipe-name">${recipe.name}${recipe.variation_name ? ` <span style="font-weight:400;color:#888"> · ${recipe.variation_name}</span>` : ''}</div>
+      <div class="recipe-name">${esc(recipe.name)}${recipe.variation_name ? ` <span style="font-weight:400;color:#888"> · ${esc(recipe.variation_name)}</span>` : ''}</div>
       ${descriptionHtml}
     </div>
   </div>`;
@@ -124,7 +127,7 @@ function buildHTML(event: Event, images: Record<string, string>): string {
   }).join('');
 
   const notesBlock = event.notes
-    ? `<div class="event-notes">"${event.notes}"</div>`
+    ? `<div class="event-notes">"${esc(event.notes)}"</div>`
     : '';
 
   const recipesSection = event.recipes.length > 0
@@ -136,7 +139,7 @@ function buildHTML(event: Event, images: Record<string, string>): string {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${event.name}</title>
+  <title>${esc(event.name)}</title>
   <style>
     @page { size: A4; margin: 12mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -360,12 +363,12 @@ function buildHTML(event: Event, images: Record<string, string>): string {
 
   <div class="header">
     <div class="header-label">Menú especial</div>
-    <div class="event-title">${event.name}</div>
+    <div class="event-title">${esc(event.name)}</div>
     <div class="event-meta-header">
       <span>📅 ${formatDate(event.event_date)}</span>
-      ${event.event_time ? `<span>🕐 ${event.event_time}</span>` : ''}
+      ${event.event_time ? `<span>🕐 ${esc(event.event_time)}</span>` : ''}
       <span>👥 ${event.guest_count} ${event.guest_count === 1 ? 'persona' : 'personas'}</span>
-      ${event.location ? `<span>📍 ${event.location}</span>` : ''}
+      ${event.location ? `<span>📍 ${esc(event.location)}</span>` : ''}
       ${event.recipes.length > 0 ? `<span>🍽 ${event.recipes.length} ${event.recipes.length === 1 ? 'platillo' : 'platillos'}</span>` : ''}
     </div>
   </div>

@@ -6,6 +6,9 @@ import type { Recipe } from '@/types/app';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
+const esc = (s: string | null | undefined): string =>
+  s ? s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') : '';
+
 async function fetchImageAsBase64(url: string): Promise<string | null> {
   try {
     const response = await fetch(url);
@@ -132,7 +135,7 @@ function buildIndex(recipes: Recipe[]): string {
     const rows = catRecipes.map((r) => {
       const row = `
         <div class="index-row">
-          <span class="index-name">${r.name}</span>
+          <span class="index-name">${esc(r.name)}</span>
           <span class="index-dots"></span>
           <span class="index-page">${pageNum}</span>
         </div>`;
@@ -142,7 +145,7 @@ function buildIndex(recipes: Recipe[]): string {
 
     sections.push(`
       <div class="index-section">
-        <div class="index-cat">${cat}</div>
+        <div class="index-cat">${esc(cat)}</div>
         ${rows}
       </div>`);
   }
@@ -200,24 +203,24 @@ function buildRecipePageSingle(
   const time = totalTime(recipe);
   const diff = difficultyLabel[recipe.difficulty] ?? recipe.difficulty;
   const diffColor = difficultyColor[recipe.difficulty] ?? '#8e8e93';
-  const cats = recipe.categories.map((c) => c.name).join(' · ');
-  const methods = recipe.methods.map((m) => m.name).join(' · ');
+  const cats = recipe.categories.map((c) => esc(c.name)).join(' · ');
+  const methods = recipe.methods.map((m) => esc(m.name)).join(' · ');
 
   const variationTag = parentName
-    ? `<div class="variation-tag">Variación de: ${parentName}</div>`
+    ? `<div class="variation-tag">Variación de: ${esc(parentName)}</div>`
     : '';
 
   const descriptionBlock = recipe.description
-    ? `<div class="recipe-description">"${recipe.description}"</div>`
+    ? `<div class="recipe-description">"${esc(recipe.description)}"</div>`
     : '';
 
   const notesBlock = recipe.notes
-    ? `<div class="notes-block"><span class="notes-label">Notas del chef</span> ${recipe.notes}</div>`
+    ? `<div class="notes-block"><span class="notes-label">Notas del chef</span> ${esc(recipe.notes)}</div>`
     : '';
 
   const ingredientsHtml = recipe.ingredients
     .sort((a, b) => a.order_index - b.order_index)
-    .map((i) => `<div class="ingredient-item">${i.quantity} ${i.unit} ${i.name}</div>`)
+    .map((i) => `<div class="ingredient-item">${esc(i.quantity ?? '')} ${esc(i.unit)} ${esc(i.name)}</div>`)
     .join('');
 
   const stepsHtml = recipe.steps
@@ -225,7 +228,7 @@ function buildRecipePageSingle(
     .map((s, idx) => `
       <div class="step-row">
         <span class="step-num">${idx + 1}</span>
-        <span class="step-text">${s.description}</span>
+        <span class="step-text">${esc(s.description)}</span>
       </div>`)
     .join('');
 
@@ -238,7 +241,7 @@ function buildRecipePageSingle(
       <div class="recipe-right">
         <div class="recipe-title-bar">
           <div class="title-accent"></div>
-          <h1 class="recipe-title">${recipe.name.toUpperCase()}</h1>
+          <h1 class="recipe-title">${esc(recipe.name.toUpperCase())}</h1>
         </div>
         <div class="recipe-meta">
           ${time ? `<div class="meta-item"><span class="meta-label">Tiempo</span><span class="meta-value">${time}</span></div>` : ''}
@@ -280,31 +283,31 @@ function buildRecipePagePart1(
   const time = totalTime(recipe);
   const diff = difficultyLabel[recipe.difficulty] ?? recipe.difficulty;
   const diffColor = difficultyColor[recipe.difficulty] ?? '#8e8e93';
-  const cats = recipe.categories.map((c) => c.name).join(' · ');
-  const methods = recipe.methods.map((m) => m.name).join(' · ');
+  const cats = recipe.categories.map((c) => esc(c.name)).join(' · ');
+  const methods = recipe.methods.map((m) => esc(m.name)).join(' · ');
 
   const variationTag = parentName
-    ? `<div class="variation-tag">Variación de: ${parentName}</div>`
+    ? `<div class="variation-tag">Variación de: ${esc(parentName)}</div>`
     : '';
 
   const descriptionBlock = recipe.description
-    ? `<div class="recipe-description">"${recipe.description}"</div>`
+    ? `<div class="recipe-description">"${esc(recipe.description)}"</div>`
     : '';
 
   const notesBlock = recipe.notes
-    ? `<div class="notes-block"><span class="notes-label">Notas del chef</span> ${recipe.notes}</div>`
+    ? `<div class="notes-block"><span class="notes-label">Notas del chef</span> ${esc(recipe.notes)}</div>`
     : '';
 
   const ingredientsHtml = recipe.ingredients
     .sort((a, b) => a.order_index - b.order_index)
-    .map((i) => `<div class="ingredient-item">${i.quantity} ${i.unit} ${i.name}</div>`)
+    .map((i) => `<div class="ingredient-item">${esc(i.quantity ?? '')} ${esc(i.unit)} ${esc(i.name)}</div>`)
     .join('');
 
   const stepsHtml = page1Steps
     .map((s, idx) => `
       <div class="step-row">
         <span class="step-num">${idx + 1}</span>
-        <span class="step-text">${s.description}</span>
+        <span class="step-text">${esc(s.description)}</span>
       </div>`)
     .join('');
 
@@ -321,7 +324,7 @@ function buildRecipePagePart1(
       <div class="recipe-right">
         <div class="recipe-title-bar">
           <div class="title-accent"></div>
-          <h1 class="recipe-title">${recipe.name.toUpperCase()}</h1>
+          <h1 class="recipe-title">${esc(recipe.name.toUpperCase())}</h1>
         </div>
         <div class="recipe-meta">
           ${time ? `<div class="meta-item"><span class="meta-label">Tiempo</span><span class="meta-value">${time}</span></div>` : ''}
@@ -359,7 +362,7 @@ function buildRecipePagePart2(recipe: Recipe, pageNum: number, page2Steps: Recip
     .map((s, idx) => `
       <div class="step-row">
         <span class="step-num">${startIdx + idx + 1}</span>
-        <span class="step-text">${s.description}</span>
+        <span class="step-text">${esc(s.description)}</span>
       </div>`)
     .join('');
 
@@ -367,7 +370,7 @@ function buildRecipePagePart2(recipe: Recipe, pageNum: number, page2Steps: Recip
   <div class="recipe-page">
     <div class="continuation-banner">
       <div class="title-accent"></div>
-      <h1 class="recipe-title">${recipe.name.toUpperCase()}</h1>
+      <h1 class="recipe-title">${esc(recipe.name.toUpperCase())}</h1>
       <span class="continuation-label">continuación</span>
     </div>
 
