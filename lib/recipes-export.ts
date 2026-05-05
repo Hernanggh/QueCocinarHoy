@@ -157,6 +157,8 @@ function buildIndex(recipes: Recipe[]): string {
 
 // ─── Ingredients HTML (direct + sauces with sub-ingredients) ────────────────
 
+const DROP_SVG_INLINE = `<svg width="10" height="13" viewBox="0 0 10 13" style="vertical-align:middle;margin-right:5px;flex-shrink:0"><path d="M5 0C5 0 0 5.5 0 8.5A5 4.5 0 0 0 10 8.5C10 5.5 5 0 5 0Z" fill="#FF9500"/></svg>`;
+
 function buildIngredientsHtml(recipe: Recipe): string {
   const direct = recipe.ingredients
     .sort((a, b) => a.order_index - b.order_index)
@@ -168,8 +170,7 @@ function buildIngredientsHtml(recipe: Recipe): string {
       const subItems = sauce.ingredients
         .map((i) => `<div class="sauce-ingredient-item">${esc(i.quantity ?? '')} ${esc(i.unit)} ${esc(i.name)}</div>`)
         .join('');
-      const dropSvg = `<svg width="10" height="13" viewBox="0 0 10 13" style="vertical-align:middle;margin-right:5px;flex-shrink:0"><path d="M5 0C5 0 0 5.5 0 8.5A5 4.5 0 0 0 10 8.5C10 5.5 5 0 5 0Z" fill="#FF9500"/></svg>`;
-      return `<div class="sauce-header">${dropSvg}${esc(sauce.name)}</div>${subItems}`;
+      return `<div class="sauce-header">${DROP_SVG_INLINE}${esc(sauce.name)}</div>${subItems}`;
     })
     .join('');
 
@@ -178,18 +179,59 @@ function buildIngredientsHtml(recipe: Recipe): string {
 
 // ─── Recipe page ─────────────────────────────────────────────────────────────
 
+// Splits ingredients across two columns when the list is too tall for one page.
+// When triggered, page 2 shows the overflow ingredients; steps stay on page 1.
+function computeIngredientSplit(recipe: Recipe): { page1Html: string; page2Html: string } | null {
+  const COL_BUDGET = 640;
+  const sorted = recipe.ingredients.slice().sort((a, b) => a.order_index - b.order_index);
+  const totalHeight = 30
+    + sorted.length * 23
+    + recipe.sauces.reduce((sum, s) => sum + 25 + s.ingredients.length * 23, 0);
+
+  if (totalHeight <= COL_BUDGET) return null;
+
+  let height = 30;
+  let page1DirectEnd = sorted.length;
+  let page1SauceEnd = 0;
+  let splitInDirect = false;
+
+  for (let i = 0; i < sorted.length; i++) {
+    if (height + 23 > COL_BUDGET) { page1DirectEnd = i; splitInDirect = true; break; }
+    height += 23;
+  }
+  if (!splitInDirect) {
+    for (let i = 0; i < recipe.sauces.length; i++) {
+      const sauceH = 25 + recipe.sauces[i].ingredients.length * 23;
+      if (height + sauceH > COL_BUDGET) break;
+      height += sauceH;
+      page1SauceEnd = i + 1;
+    }
+  }
+
+  const toHtml = (ings: typeof sorted, sauces: typeof recipe.sauces) => {
+    const direct = ings.map((i) => `<div class="ingredient-item">${esc(i.quantity ?? '')} ${esc(i.unit)} ${esc(i.name)}</div>`).join('');
+    const saucesHtml = sauces.map((sauce) => {
+      const subItems = sauce.ingredients.map((i) => `<div class="sauce-ingredient-item">${esc(i.quantity ?? '')} ${esc(i.unit)} ${esc(i.name)}</div>`).join('');
+      return `<div class="sauce-header">${DROP_SVG_INLINE}${esc(sauce.name)}</div>${subItems}`;
+    }).join('');
+    return direct + saucesHtml;
+  };
+
+  const page1Sauces = splitInDirect ? [] : recipe.sauces.slice(0, page1SauceEnd);
+  const page2Sauces = splitInDirect ? recipe.sauces : recipe.sauces.slice(page1SauceEnd);
+
+  return {
+    page1Html: toHtml(sorted.slice(0, page1DirectEnd), page1Sauces),
+    page2Html: toHtml(sorted.slice(page1DirectEnd), page2Sauces),
+  };
+}
+
+// Splits steps when the step list alone is too tall for one page.
 function splitSteps(recipe: Recipe): { page1Steps: Recipe['steps']; page2Steps: Recipe['steps'] } | null {
   const ingColHeight = 30
     + recipe.ingredients.length * 23
     + recipe.sauces.reduce((sum, s) => sum + 25 + s.ingredients.length * 23, 0);
   const sorted = [...recipe.steps].sort((a, b) => a.order_index - b.order_index);
-
-  // Ingredientes demasiado altos para columna lateral — mover todos los pasos a página 2
-  // para que los ingredientes usen el ancho completo de la página
-  if (ingColHeight > 480) {
-    return { page1Steps: [], page2Steps: sorted };
-  }
-
   const AVAILABLE_HEIGHT = Math.max(150, 650 - Math.max(0, ingColHeight - 220));
   let height = 0;
   for (let i = 0; i < sorted.length; i++) {
@@ -205,7 +247,7 @@ function splitSteps(recipe: Recipe): { page1Steps: Recipe['steps']; page2Steps: 
 }
 
 function pagesForRecipe(recipe: Recipe): number {
-  return splitSteps(recipe) !== null ? 2 : 1;
+  return (computeIngredientSplit(recipe) !== null || splitSteps(recipe) !== null) ? 2 : 1;
 }
 
 function buildRecipePage(
@@ -214,6 +256,13 @@ function buildRecipePage(
   photoSrc: string | null,
   pageNum: number
 ): string {
+  const ingSplit = computeIngredientSplit(recipe);
+  if (ingSplit) {
+    return (
+      buildRecipePageIngSplit1(recipe, parentName, photoSrc, pageNum, ingSplit.page1Html) +
+      buildRecipePageIngSplit2(recipe, pageNum + 1, ingSplit.page2Html)
+    );
+  }
   const split = splitSteps(recipe);
   if (split) {
     return (
@@ -222,6 +271,86 @@ function buildRecipePage(
     );
   }
   return buildRecipePageSingle(recipe, parentName, photoSrc, pageNum);
+}
+
+// Page 1 when ingredients overflow: left col = partial ingredients, right col = ALL steps.
+function buildRecipePageIngSplit1(
+  recipe: Recipe,
+  parentName: string | null,
+  photoSrc: string | null,
+  pageNum: number,
+  page1IngrHtml: string
+): string {
+  const imgSrc = photoSrc ?? PLACEHOLDER_SVG;
+  const time = totalTime(recipe);
+  const diff = difficultyLabel[recipe.difficulty] ?? recipe.difficulty;
+  const diffColor = difficultyColor[recipe.difficulty] ?? '#8e8e93';
+  const cats = recipe.categories.map((c) => esc(c.name)).join(' · ');
+  const methods = recipe.methods.map((m) => esc(m.name)).join(' · ');
+  const variationTag = parentName ? `<div class="variation-tag">Variación de: ${esc(parentName)}</div>` : '';
+  const descriptionBlock = recipe.description ? `<div class="recipe-description">"${esc(recipe.description)}"</div>` : '';
+  const notesBlock = recipe.notes ? `<div class="notes-block"><span class="notes-label">Notas del chef</span> ${esc(recipe.notes)}</div>` : '';
+
+  const allSteps = [...recipe.steps].sort((a, b) => a.order_index - b.order_index);
+  const stepsHtml = allSteps.map((s, idx) => `
+      <div class="step-row">
+        <span class="step-num">${idx + 1}</span>
+        <span class="step-text">${esc(s.description)}</span>
+      </div>`).join('');
+
+  return `
+  <div class="recipe-page">
+    ${variationTag}
+    <div class="recipe-top">
+      <img class="recipe-photo" src="${imgSrc}" alt="" />
+      <div class="recipe-right">
+        <div class="recipe-title-bar">
+          <div class="title-accent"></div>
+          <h1 class="recipe-title">${esc(recipe.name.toUpperCase())}</h1>
+        </div>
+        <div class="recipe-meta">
+          ${time ? `<div class="meta-item"><span class="meta-label">Tiempo</span><span class="meta-value">${time}</span></div>` : ''}
+          <div class="meta-item"><span class="meta-label">Porciones</span><span class="meta-value">${recipe.base_servings}</span></div>
+          <div class="meta-item"><span class="meta-label">Dificultad</span><span class="meta-value" style="color:${diffColor}">${diff}</span></div>
+          ${cats ? `<div class="meta-item"><span class="meta-label">Categoría</span><span class="meta-value">${cats}</span></div>` : ''}
+          ${methods ? `<div class="meta-item"><span class="meta-label">Método</span><span class="meta-value">${methods}</span></div>` : ''}
+        </div>
+        ${descriptionBlock}
+        ${notesBlock}
+      </div>
+    </div>
+    <div class="section-divider"></div>
+    <div class="recipe-bottom">
+      <div class="recipe-col">
+        <div class="section-label">Ingredientes</div>
+        <div class="ingredients-list">${page1IngrHtml}</div>
+        <div class="continuation-note">Continúa en la siguiente página →</div>
+      </div>
+      <div class="recipe-col">
+        <div class="section-label">Pasos</div>
+        <div class="steps-list">${stepsHtml}</div>
+      </div>
+    </div>
+    <div class="page-footer">${pageNum}</div>
+  </div>`;
+}
+
+// Page 2 when ingredients overflow: remaining ingredients (no steps, they're on page 1).
+function buildRecipePageIngSplit2(recipe: Recipe, pageNum: number, page2IngrHtml: string): string {
+  return `
+  <div class="recipe-page">
+    <div class="continuation-banner">
+      <div class="title-accent"></div>
+      <h1 class="recipe-title">${esc(recipe.name.toUpperCase())}</h1>
+      <span class="continuation-label">continuación</span>
+    </div>
+    <div class="section-divider"></div>
+    <div class="recipe-bottom-full">
+      <div class="section-label">Ingredientes</div>
+      <div class="ingredients-list">${page2IngrHtml}</div>
+    </div>
+    <div class="page-footer">${pageNum}</div>
+  </div>`;
 }
 
 function buildRecipePageSingle(
