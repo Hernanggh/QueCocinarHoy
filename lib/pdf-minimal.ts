@@ -5,7 +5,7 @@ export function buildPDFFromJpegs(
   jpegs: Uint8Array[],
   pageWidthPt = 595.28,
   pageHeightPt = 841.89,
-): Uint8Array {
+): Uint8Array<ArrayBuffer> {
   const enc = new TextEncoder();
   const chunks: Uint8Array[] = [];
   let byteOffset = 0;
