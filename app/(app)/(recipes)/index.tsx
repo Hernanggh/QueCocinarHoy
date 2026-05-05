@@ -6,6 +6,7 @@ import {
   FlatList,
   ScrollView,
   Pressable,
+  TextInput,
   Platform,
   Alert,
   Image,
@@ -105,6 +106,39 @@ function SidebarSection({
   );
 }
 
+function SearchBar({ value, onChange }: { value: string; onChange: (t: string) => void }) {
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: pc('secondarySystemBackground'),
+        borderRadius: 12,
+        borderCurve: 'continuous',
+        paddingHorizontal: 10,
+        marginBottom: 10,
+        height: 38,
+      }}
+    >
+      <IconSymbol name="magnifyingglass" size={16} color={pc('secondaryLabel')} />
+      <TextInput
+        value={value}
+        onChangeText={onChange}
+        placeholder="Buscar recetas…"
+        placeholderTextColor={pc('secondaryLabel')}
+        autoCorrect={false}
+        autoCapitalize="none"
+        style={{ flex: 1, fontSize: 15, color: pc('label'), marginLeft: 8 }}
+      />
+      {value.length > 0 && (
+        <Pressable onPress={() => onChange('')} hitSlop={8}>
+          <IconSymbol name="xmark.circle.fill" size={16} color={pc('secondaryLabel')} />
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
 export default function RecipesScreen() {
   const router = useRouter();
   const { signOut } = useAuth();
@@ -146,6 +180,7 @@ export default function RecipesScreen() {
   const numCols = Platform.OS === 'web' ? 3 : 2;
   const gapTotal = 12 * (numCols - 1);
   const cardWidth = (gridWidth - 32 - gapTotal) / numCols;
+  const [searchText, setSearchText] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
 
@@ -157,12 +192,24 @@ export default function RecipesScreen() {
     .filter(Boolean)
     .join(' · ');
 
-  const filtered = recipes.filter((r) => {
-    const passCategory =
-      !selectedCategory || r.categories.some((c) => c.id === selectedCategory);
-    const passMethod =
-      !selectedMethod || r.methods.some((m) => m.id === selectedMethod);
-    return passCategory && passMethod;
+  const q = searchText.trim().toLowerCase();
+  const matchesText = (r: Recipe) =>
+    r.name.toLowerCase().includes(q)
+    || (r.description ?? '').toLowerCase().includes(q)
+    || r.ingredients.some((i) => i.name.toLowerCase().includes(q));
+
+  // Cuando hay búsqueda, incluir variaciones como ítems independientes en el pool
+  const pool: Recipe[] = q
+    ? [...recipes, ...recipes.flatMap((r) => r.variations)]
+    : recipes;
+
+  const filtered = pool.filter((r) => {
+    const isVariation = r.parent_recipe_id !== null;
+    // Las variaciones no tienen categorías/métodos propios — se omiten esos filtros
+    const passCategory = isVariation || !selectedCategory || r.categories.some((c) => c.id === selectedCategory);
+    const passMethod = isVariation || !selectedMethod || r.methods.some((m) => m.id === selectedMethod);
+    const passSearch = !q || matchesText(r);
+    return passCategory && passMethod && passSearch;
   });
 
   if (loading) return <LoadingScreen />;
@@ -240,6 +287,9 @@ export default function RecipesScreen() {
                     Nueva receta
                   </Text>
                 </Pressable>
+              </View>
+              <View style={{ paddingHorizontal: 16, paddingBottom: 4 }}>
+                <SearchBar value={searchText} onChange={setSearchText} />
               </View>
               <SidebarSection
                 title="Categorías"
@@ -408,6 +458,8 @@ export default function RecipesScreen() {
                   </Pressable>
                 </View>
 
+                <SearchBar value={searchText} onChange={setSearchText} />
+
                 <Pressable
                   onPress={() => setFilterOpen((v) => !v)}
                   style={({ pressed }) => ({
@@ -495,6 +547,12 @@ export default function RecipesScreen() {
                   {fetchError}
                 </Text>
               </View>
+            ) : searchText.trim() ? (
+              <EmptyState
+                icon="magnifyingglass"
+                title="Sin resultados"
+                subtitle={`No hay recetas que coincidan con "${searchText.trim()}"`}
+              />
             ) : (
               <EmptyState
                 icon="fork.knife"
