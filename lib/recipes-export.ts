@@ -179,21 +179,29 @@ function buildIngredientsHtml(recipe: Recipe): string {
 // ─── Recipe page ─────────────────────────────────────────────────────────────
 
 function splitSteps(recipe: Recipe): { page1Steps: Recipe['steps']; page2Steps: Recipe['steps'] } | null {
-  const AVAILABLE_HEIGHT = 650;
+  const ingColHeight = 30
+    + recipe.ingredients.length * 23
+    + recipe.sauces.reduce((sum, s) => sum + 25 + s.ingredients.length * 23, 0);
   const sorted = [...recipe.steps].sort((a, b) => a.order_index - b.order_index);
 
+  // Ingredientes demasiado altos para columna lateral — mover todos los pasos a página 2
+  // para que los ingredientes usen el ancho completo de la página
+  if (ingColHeight > 480) {
+    return { page1Steps: [], page2Steps: sorted };
+  }
+
+  const AVAILABLE_HEIGHT = Math.max(150, 650 - Math.max(0, ingColHeight - 220));
   let height = 0;
   for (let i = 0; i < sorted.length; i++) {
     const lines = Math.ceil(sorted[i].description.length / 55);
     const stepH = lines * 21 + 10;
     if (height + stepH > AVAILABLE_HEIGHT) {
-      // Step i doesn't fit — split here
       if (i === 0) return { page1Steps: [], page2Steps: sorted };
       return { page1Steps: sorted.slice(0, i), page2Steps: sorted.slice(i) };
     }
     height += stepH;
   }
-  return null; // all steps fit on page 1
+  return null;
 }
 
 function pagesForRecipe(recipe: Recipe): number {
@@ -357,15 +365,20 @@ function buildRecipePagePart1(
 
     <div class="section-divider"></div>
 
-    <div class="recipe-bottom">
-      <div class="recipe-col">
-        <div class="section-label">Ingredientes</div>
-        <div class="ingredients-list">${ingredientsHtml}</div>
-      </div>
-      <div class="recipe-col">
-        ${stepsBlock}
-      </div>
-    </div>
+    ${page1Steps.length > 0
+      ? `<div class="recipe-bottom">
+           <div class="recipe-col">
+             <div class="section-label">Ingredientes</div>
+             <div class="ingredients-list">${ingredientsHtml}</div>
+           </div>
+           <div class="recipe-col">${stepsBlock}</div>
+         </div>`
+      : `<div class="recipe-bottom-full">
+           <div class="section-label">Ingredientes</div>
+           <div class="ingredients-list">${ingredientsHtml}</div>
+           <div class="continuation-note">Ver pasos en la siguiente página →</div>
+         </div>`
+    }
 
     <div class="page-footer">${pageNum}</div>
   </div>`;

@@ -341,7 +341,7 @@ export function RecipeDetailContent({ recipe, onEdit, onDelete, onSaucePress, on
                         {ing.name}
                       </Text>
                       <Text selectable style={{ fontSize: 15, color: pc('secondaryLabel'), fontVariant: ['tabular-nums'] }}>
-                        {ing.quantity} {ing.unit}
+                        {scaleQty(ing.quantity)} {ing.unit}
                       </Text>
                     </View>
                   ))}
@@ -381,37 +381,6 @@ export function RecipeDetailContent({ recipe, onEdit, onDelete, onSaucePress, on
                     {step.description}
                   </Text>
                 </View>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* Salsas vinculadas */}
-        {recipe.sauces.length > 0 && (
-          <View>
-            {sectionTitle('Salsas y aderezos')}
-            <View style={{ gap: 8 }}>
-              {recipe.sauces.map((sauce) => (
-                <Pressable
-                  key={sauce.id}
-                  onPress={() => onSaucePress(sauce.id)}
-                  style={({ pressed }) => ({
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 10,
-                    padding: 14,
-                    borderRadius: 12,
-                    borderCurve: 'continuous',
-                    backgroundColor: pc('secondarySystemBackground'),
-                    opacity: pressed ? 0.7 : 1,
-                  })}
-                >
-                  <IconSymbol name="drop.fill" size={18} color={pc('systemOrange')} />
-                  <Text style={{ fontSize: 16, color: pc('label'), flex: 1 }}>
-                    {sauce.name}
-                  </Text>
-                  <IconSymbol name="chevron.right" size={16} color={pc('systemGray3')} />
-                </Pressable>
               ))}
             </View>
           </View>
