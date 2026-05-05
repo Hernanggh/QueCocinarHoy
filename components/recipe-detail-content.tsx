@@ -18,9 +18,11 @@ type Props = {
   onVariationPress?: (variation: Recipe) => void;
   onParentPress?: () => void;
   parentName?: string | null;
+  usedInName?: string | null;
+  onUsedInPress?: () => void;
 };
 
-export function RecipeDetailContent({ recipe, onEdit, onDelete, onSaucePress, onAddToEvent, onShare, onAddVariation, onVariationPress, onParentPress, parentName }: Props) {
+export function RecipeDetailContent({ recipe, onEdit, onDelete, onSaucePress, onAddToEvent, onShare, onAddVariation, onVariationPress, onParentPress, parentName, usedInName, onUsedInPress }: Props) {
   const photoUrl = getPublicUrl(recipe.photo_url ?? null);
   const totalTime = recipe.prep_time_min + recipe.cook_time_min;
   const [currentServings, setCurrentServings] = useState(recipe.base_servings);
@@ -80,6 +82,30 @@ export function RecipeDetailContent({ recipe, onEdit, onDelete, onSaucePress, on
             Variación de: <Text style={{ fontWeight: '600' }}>{parentName}</Text>
           </Text>
           {onParentPress && (
+            <IconSymbol name="chevron.right" size={12} color="#FF9500" />
+          )}
+        </Pressable>
+      )}
+
+      {usedInName && (
+        <Pressable
+          onPress={onUsedInPress ?? undefined}
+          disabled={!onUsedInPress}
+          style={({ pressed }) => ({
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+            marginHorizontal: 16,
+            marginTop: 12,
+            alignSelf: 'flex-start',
+            opacity: pressed ? 0.6 : 1,
+          })}
+        >
+          <IconSymbol name="arrow.turn.up.left" size={13} color={pc('secondaryLabel')} />
+          <Text style={{ fontSize: 13, color: onUsedInPress ? '#FF9500' : pc('secondaryLabel') }}>
+            Ingrediente de: <Text style={{ fontWeight: '600' }}>{usedInName}</Text>
+          </Text>
+          {onUsedInPress && (
             <IconSymbol name="chevron.right" size={12} color="#FF9500" />
           )}
         </Pressable>
@@ -210,37 +236,39 @@ export function RecipeDetailContent({ recipe, onEdit, onDelete, onSaucePress, on
         ) : null}
 
         {/* Ingredientes */}
-        {recipe.ingredients.length > 0 && (
+        {(recipe.ingredients.length > 0 || recipe.sauces.length > 0) && (
           <View>
             {sectionTitle(recipe.parent_recipe_id ? 'Ingredientes adicionales' : 'Ingredientes')}
             {/* Stepper de porciones */}
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: 12,
-              }}
-            >
-              <Text style={{ fontSize: 14, color: pc('secondaryLabel') }}>Porciones</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                <Pressable
-                  onPress={() => setCurrentServings((s) => Math.max(1, s - 1))}
-                  hitSlop={8}
-                >
-                  <IconSymbol name="minus.circle" size={28} color={pc('systemOrange')} />
-                </Pressable>
-                <Text style={{ fontSize: 17, fontWeight: '600', color: pc('label'), minWidth: 28, textAlign: 'center' }}>
-                  {currentServings}
-                </Text>
-                <Pressable
-                  onPress={() => setCurrentServings((s) => s + 1)}
-                  hitSlop={8}
-                >
-                  <IconSymbol name="plus.circle" size={28} color={pc('systemOrange')} />
-                </Pressable>
+            {recipe.ingredients.length > 0 && (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: 12,
+                }}
+              >
+                <Text style={{ fontSize: 14, color: pc('secondaryLabel') }}>Porciones</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                  <Pressable
+                    onPress={() => setCurrentServings((s) => Math.max(1, s - 1))}
+                    hitSlop={8}
+                  >
+                    <IconSymbol name="minus.circle" size={28} color={pc('systemOrange')} />
+                  </Pressable>
+                  <Text style={{ fontSize: 17, fontWeight: '600', color: pc('label'), minWidth: 28, textAlign: 'center' }}>
+                    {currentServings}
+                  </Text>
+                  <Pressable
+                    onPress={() => setCurrentServings((s) => s + 1)}
+                    hitSlop={8}
+                  >
+                    <IconSymbol name="plus.circle" size={28} color={pc('systemOrange')} />
+                  </Pressable>
+                </View>
               </View>
-            </View>
+            )}
             <View
               style={{
                 backgroundColor: pc('secondarySystemBackground'),
@@ -256,7 +284,7 @@ export function RecipeDetailContent({ recipe, onEdit, onDelete, onSaucePress, on
                     flexDirection: 'row',
                     justifyContent: 'space-between',
                     padding: 14,
-                    borderBottomWidth: idx < recipe.ingredients.length - 1 ? 0.5 : 0,
+                    borderBottomWidth: (idx < recipe.ingredients.length - 1 || recipe.sauces.length > 0) ? 0.5 : 0,
                     borderBottomColor: pc('separator'),
                   }}
                 >
@@ -273,6 +301,50 @@ export function RecipeDetailContent({ recipe, onEdit, onDelete, onSaucePress, on
                   >
                     {scaleQty(ing.quantity)} {ing.unit}
                   </Text>
+                </View>
+              ))}
+              {recipe.sauces.map((sauce, idxSauce) => (
+                <View key={sauce.id}>
+                  <Pressable
+                    onPress={() => onSaucePress(sauce.id)}
+                    style={({ pressed }) => ({
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: 14,
+                      borderBottomWidth: (sauce.ingredients.length > 0 || idxSauce < recipe.sauces.length - 1) ? 0.5 : 0,
+                      borderBottomColor: pc('separator'),
+                      opacity: pressed ? 0.7 : 1,
+                    })}
+                  >
+                    <IconSymbol name="drop.fill" size={15} color={pc('systemOrange')} />
+                    <Text style={{ fontSize: 16, color: pc('label'), flex: 1 }}>
+                      {sauce.name}
+                    </Text>
+                    <IconSymbol name="chevron.right" size={14} color={pc('systemOrange')} />
+                  </Pressable>
+                  {sauce.ingredients.map((ing, idxIng) => (
+                    <View
+                      key={ing.id}
+                      style={{
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        paddingVertical: 11,
+                        paddingLeft: 38,
+                        paddingRight: 14,
+                        borderBottomWidth: (idxSauce < recipe.sauces.length - 1 || idxIng < sauce.ingredients.length - 1) ? 0.5 : 0,
+                        borderBottomColor: pc('separator'),
+                        backgroundColor: pc('tertiarySystemBackground'),
+                      }}
+                    >
+                      <Text selectable style={{ fontSize: 15, color: pc('secondaryLabel'), flex: 1 }}>
+                        {ing.name}
+                      </Text>
+                      <Text selectable style={{ fontSize: 15, color: pc('secondaryLabel'), fontVariant: ['tabular-nums'] }}>
+                        {ing.quantity} {ing.unit}
+                      </Text>
+                    </View>
+                  ))}
                 </View>
               ))}
             </View>

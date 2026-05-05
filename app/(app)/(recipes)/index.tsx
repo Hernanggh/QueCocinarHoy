@@ -147,6 +147,7 @@ export default function RecipesScreen() {
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [selectedMethod, setSelectedMethod] = useState<number | null>(null);
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
+  const [fromModalRecipeId, setFromModalRecipeId] = useState<string | null>(null);
   const [addToEventRecipe, setAddToEventRecipe] = useState<Recipe | null>(null);
   const { width } = useWindowDimensions();
 
@@ -567,11 +568,10 @@ export default function RecipesScreen() {
               entering={FadeInUp.duration(400).delay(index * 60)}
             >
               <Pressable
-                onPress={() =>
-                  isWeb
-                    ? setSelectedRecipeId(item.id)
-                    : router.push(`/recipe/${item.id}` as any)
-                }
+                onPress={() => {
+                  if (isWeb) { setSelectedRecipeId(item.id); setFromModalRecipeId(null); }
+                  else router.push(`/recipe/${item.id}` as any);
+                }}
                 style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
               >
                 <RecipeCard recipe={item} photoHeight={cardWidth} />
@@ -597,7 +597,7 @@ export default function RecipesScreen() {
         >
           {/* Backdrop */}
           <Pressable
-            onPress={() => setSelectedRecipeId(null)}
+            onPress={() => { setSelectedRecipeId(null); setFromModalRecipeId(null); }}
             style={{
               position: 'absolute',
               top: 0,
@@ -674,7 +674,7 @@ export default function RecipesScreen() {
                 >
                   <IconSymbol name="square.and.arrow.up" size={20} color={pc('systemOrange')} />
                 </Pressable>
-                <Pressable onPress={() => setSelectedRecipeId(null)} hitSlop={8} style={{ cursor: 'pointer' } as any}>
+                <Pressable onPress={() => { setSelectedRecipeId(null); setFromModalRecipeId(null); }} hitSlop={8} style={{ cursor: 'pointer' } as any}>
                   <IconSymbol name="xmark" size={20} color={pc('secondaryLabel')} />
                 </Pressable>
               </View>
@@ -702,8 +702,8 @@ export default function RecipesScreen() {
               </Pressable>
             </View>
 
-            {/* Contenido scrollable */}
-            <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
+            {/* Contenido scrollable — key fuerza remount al cambiar receta (props frescos, bypasea React Compiler) */}
+            <ScrollView key={selectedRecipeId ?? ''} contentContainerStyle={{ paddingBottom: 32 }}>
               <RecipeDetailContent
                 recipe={selectedRecipe}
                 parentName={selectedRecipeParent?.name}
@@ -712,8 +712,11 @@ export default function RecipesScreen() {
                     ? () => setSelectedRecipeId(selectedRecipe.parent_recipe_id!)
                     : undefined
                 }
+                usedInName={fromModalRecipeId ? (recipes.find((r) => r.id === fromModalRecipeId)?.name ?? null) : null}
+                onUsedInPress={fromModalRecipeId ? () => { setSelectedRecipeId(fromModalRecipeId); setFromModalRecipeId(null); } : undefined}
                 onEdit={() => {
                   setSelectedRecipeId(null);
+                  setFromModalRecipeId(null);
                   router.push({
                     pathname: '/recipe/new' as any,
                     params: { recipeId: selectedRecipe.id },
@@ -722,8 +725,8 @@ export default function RecipesScreen() {
                 onDelete={() =>
                   handleWebDelete(selectedRecipe.id, selectedRecipe.photo_url)
                 }
-                onSaucePress={(id) => setSelectedRecipeId(id)}
-                onVariationPress={(v) => setSelectedRecipeId(v.id)}
+                onSaucePress={(id) => { setFromModalRecipeId(selectedRecipe.id); setSelectedRecipeId(id); }}
+                onVariationPress={(v) => { setFromModalRecipeId(null); setSelectedRecipeId(v.id); }}
                 onAddVariation={() => {
                   setSelectedRecipeId(null);
                   router.push({

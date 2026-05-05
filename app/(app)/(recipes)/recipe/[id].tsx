@@ -14,7 +14,7 @@ import { shareRecipeAsImage } from '@/lib/recipe-share';
 import type { Recipe } from '@/types/app';
 
 export default function RecipeDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, fromRecipeId } = useLocalSearchParams<{ id: string; fromRecipeId?: string }>();
   const router = useRouter();
   const { recipes, loading } = useRecipes();
   const [addToEventRecipe, setAddToEventRecipe] = useState<Recipe | null>(null);
@@ -23,6 +23,9 @@ export default function RecipeDetailScreen() {
     ?? recipes.flatMap((r) => r.variations).find((v) => v.id === id);
   const parentRecipe = recipe?.parent_recipe_id
     ? recipes.find((r) => r.id === recipe.parent_recipe_id)
+    : null;
+  const fromRecipe = fromRecipeId
+    ? (recipes.find((r) => r.id === fromRecipeId) ?? recipes.flatMap((r) => r.variations).find((v) => v.id === fromRecipeId))
     : null;
 
   const shareCardRef = useRef<View>(null);
@@ -92,7 +95,7 @@ export default function RecipeDetailScreen() {
             })
           }
           onDelete={handleDelete}
-          onSaucePress={(sauceId) => router.push(`/recipe/${sauceId}` as any)}
+          onSaucePress={(sauceId) => router.push({ pathname: `/recipe/${sauceId}` as any, params: { fromRecipeId: id } })}
           onVariationPress={(v) => router.push(`/recipe/${v.id}` as any)}
           onAddVariation={() =>
             router.push({
@@ -101,6 +104,8 @@ export default function RecipeDetailScreen() {
             })
           }
           onParentPress={parentRecipe ? () => router.push(`/recipe/${parentRecipe.id}` as any) : undefined}
+          usedInName={fromRecipe?.name}
+          onUsedInPress={fromRecipe ? () => router.push(`/recipe/${fromRecipe.id}` as any) : undefined}
           onAddToEvent={() => setAddToEventRecipe(recipe)}
           onShare={handleShare}
         />
