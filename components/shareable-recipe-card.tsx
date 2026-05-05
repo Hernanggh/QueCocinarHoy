@@ -2,6 +2,7 @@ import { View, Text } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getPublicUrl } from '@/lib/storage';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import type { Recipe } from '@/types/app';
 
 /**
@@ -65,7 +66,7 @@ export function ShareableRecipeCard({ recipe }: { recipe: Recipe }) {
           </Text>
         </View>
 
-        {maxIng > 0 && (
+        {(maxIng > 0 || recipe.sauces.length > 0) && (
           <View
             style={{
               borderTopWidth: 1,
@@ -94,6 +95,12 @@ export function ShareableRecipeCard({ recipe }: { recipe: Recipe }) {
                 + {recipe.ingredients.length - maxIng} más
               </Text>
             )}
+            {recipe.sauces.map((sauce, i) => (
+              <View key={`sauce-${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <IconSymbol name="drop.fill" size={13} color="rgba(255,149,0,0.85)" />
+                <Text style={{ color: 'rgba(255,149,0,0.85)', fontSize: 14 }}>{sauce.name}</Text>
+              </View>
+            ))}
           </View>
         )}
 

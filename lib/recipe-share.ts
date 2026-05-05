@@ -18,6 +18,17 @@ export async function shareRecipeAsImage(
   }
 }
 
+// SVG gota naranja — mismo shape que drop.fill de SF Symbols
+const DROP_SVG = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='13' viewBox='0 0 10 13'%3E%3Cpath d='M5 0C5 0 0 5.5 0 8.5A5 4.5 0 0 0 10 8.5C10 5.5 5 0 5 0Z' fill='%23FF9500'/%3E%3C/svg%3E`;
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.src = src;
+  });
+}
+
 // ─── Web: Canvas API → descarga PNG ───────────────────────────────────────────
 
 async function shareOnWeb(recipe: Recipe) {
@@ -127,7 +138,7 @@ async function shareOnWeb(recipe: Recipe) {
   y += 28;
 
   // ── Ingredientes (todos) ──
-  if (recipe.ingredients.length > 0) {
+  if (recipe.ingredients.length > 0 || recipe.sauces.length > 0) {
     divider();
     sectionTitle('Ingredientes');
     ctx.font = `14px ${FONT}`;
@@ -135,6 +146,15 @@ async function shareOnWeb(recipe: Recipe) {
       ctx.fillStyle = 'rgba(255,255,255,0.62)';
       ctx.fillText(`• ${ing.quantity} ${ing.unit} ${ing.name}`, PAD, y);
       y += 22;
+    }
+    if (recipe.sauces.length > 0) {
+      const dropImg = await loadImage(DROP_SVG);
+      for (const sauce of recipe.sauces) {
+        ctx.drawImage(dropImg, PAD, y - 12, 10, 13);
+        ctx.fillStyle = 'rgba(255,149,0,0.85)';
+        ctx.fillText(sauce.name, PAD + 15, y);
+        y += 22;
+      }
     }
     y += 6;
   }

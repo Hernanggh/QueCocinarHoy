@@ -155,6 +155,27 @@ function buildIndex(recipes: Recipe[]): string {
   return sections.join('');
 }
 
+// ─── Ingredients HTML (direct + sauces with sub-ingredients) ────────────────
+
+function buildIngredientsHtml(recipe: Recipe): string {
+  const direct = recipe.ingredients
+    .sort((a, b) => a.order_index - b.order_index)
+    .map((i) => `<div class="ingredient-item">${esc(i.quantity ?? '')} ${esc(i.unit)} ${esc(i.name)}</div>`)
+    .join('');
+
+  const sauces = recipe.sauces
+    .map((sauce) => {
+      const subItems = sauce.ingredients
+        .map((i) => `<div class="sauce-ingredient-item">${esc(i.quantity ?? '')} ${esc(i.unit)} ${esc(i.name)}</div>`)
+        .join('');
+      const dropSvg = `<svg width="10" height="13" viewBox="0 0 10 13" style="vertical-align:middle;margin-right:5px;flex-shrink:0"><path d="M5 0C5 0 0 5.5 0 8.5A5 4.5 0 0 0 10 8.5C10 5.5 5 0 5 0Z" fill="#FF9500"/></svg>`;
+      return `<div class="sauce-header">${dropSvg}${esc(sauce.name)}</div>${subItems}`;
+    })
+    .join('');
+
+  return direct + sauces;
+}
+
 // ─── Recipe page ─────────────────────────────────────────────────────────────
 
 function splitSteps(recipe: Recipe): { page1Steps: Recipe['steps']; page2Steps: Recipe['steps'] } | null {
@@ -220,10 +241,7 @@ function buildRecipePageSingle(
     ? `<div class="notes-block"><span class="notes-label">Notas del chef</span> ${esc(recipe.notes)}</div>`
     : '';
 
-  const ingredientsHtml = recipe.ingredients
-    .sort((a, b) => a.order_index - b.order_index)
-    .map((i) => `<div class="ingredient-item">${esc(i.quantity ?? '')} ${esc(i.unit)} ${esc(i.name)}</div>`)
-    .join('');
+  const ingredientsHtml = buildIngredientsHtml(recipe);
 
   const stepsHtml = recipe.steps
     .sort((a, b) => a.order_index - b.order_index)
@@ -300,10 +318,7 @@ function buildRecipePagePart1(
     ? `<div class="notes-block"><span class="notes-label">Notas del chef</span> ${esc(recipe.notes)}</div>`
     : '';
 
-  const ingredientsHtml = recipe.ingredients
-    .sort((a, b) => a.order_index - b.order_index)
-    .map((i) => `<div class="ingredient-item">${esc(i.quantity ?? '')} ${esc(i.unit)} ${esc(i.name)}</div>`)
-    .join('');
+  const ingredientsHtml = buildIngredientsHtml(recipe);
 
   const stepsHtml = page1Steps
     .map((s, idx) => `
@@ -676,6 +691,21 @@ function buildCookbookHTML(recipes: Recipe[], images: Record<string, string>, ic
     .ingredient-item {
       padding: 2px 0;
       border-bottom: 0.5px solid #f2f2f7;
+    }
+    .sauce-header {
+      display: flex;
+      align-items: center;
+      padding: 5px 0 2px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #FF9500;
+      border-bottom: 0.5px solid #f2f2f7;
+      margin-top: 3px;
+    }
+    .sauce-ingredient-item {
+      padding: 2px 0 2px 14px;
+      border-bottom: 0.5px solid #f2f2f7;
+      color: #636366;
     }
     .steps-list { display: flex; flex-direction: column; gap: 10px; }
     .step-row { display: flex; gap: 12px; align-items: flex-start; }
