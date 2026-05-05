@@ -152,8 +152,16 @@ async function shareOnWeb(recipe: Recipe) {
       for (const sauce of recipe.sauces) {
         ctx.drawImage(dropImg, PAD, y - 12, 10, 13);
         ctx.fillStyle = 'rgba(255,149,0,0.85)';
+        ctx.font = `14px ${FONT}`;
         ctx.fillText(sauce.name, PAD + 15, y);
         y += 22;
+        for (const ss of (sauce.sauces ?? [])) {
+          ctx.drawImage(dropImg, PAD + 15, y - 10, 8, 10);
+          ctx.fillStyle = 'rgba(255,149,0,0.55)';
+          ctx.font = `13px ${FONT}`;
+          ctx.fillText(ss.name, PAD + 28, y);
+          y += 19;
+        }
       }
     }
     y += 6;

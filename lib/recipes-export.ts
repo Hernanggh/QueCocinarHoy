@@ -170,7 +170,10 @@ function buildIngredientsHtml(recipe: Recipe): string {
       const subItems = sauce.ingredients
         .map((i) => `<div class="sauce-ingredient-item">${esc(i.quantity ?? '')} ${esc(i.unit)} ${esc(i.name)}</div>`)
         .join('');
-      return `<div class="sauce-header">${DROP_SVG_INLINE}${esc(sauce.name)}</div>${subItems}`;
+      const subSauces = (sauce.sauces ?? [])
+        .map((ss) => `<div class="sauce-subsauce-item">${DROP_SVG_INLINE}${esc(ss.name)}</div>`)
+        .join('');
+      return `<div class="sauce-header">${DROP_SVG_INLINE}${esc(sauce.name)}</div>${subItems}${subSauces}`;
     })
     .join('');
 
@@ -186,7 +189,7 @@ function computeIngredientSplit(recipe: Recipe): { page1Html: string; page2Html:
   const sorted = recipe.ingredients.slice().sort((a, b) => a.order_index - b.order_index);
   const totalHeight = 30
     + sorted.length * 23
-    + recipe.sauces.reduce((sum, s) => sum + 25 + s.ingredients.length * 23, 0);
+    + recipe.sauces.reduce((sum, s) => sum + 25 + s.ingredients.length * 23 + (s.sauces ?? []).length * 22, 0);
 
   if (totalHeight <= COL_BUDGET) return null;
 
@@ -212,7 +215,8 @@ function computeIngredientSplit(recipe: Recipe): { page1Html: string; page2Html:
     const direct = ings.map((i) => `<div class="ingredient-item">${esc(i.quantity ?? '')} ${esc(i.unit)} ${esc(i.name)}</div>`).join('');
     const saucesHtml = sauces.map((sauce) => {
       const subItems = sauce.ingredients.map((i) => `<div class="sauce-ingredient-item">${esc(i.quantity ?? '')} ${esc(i.unit)} ${esc(i.name)}</div>`).join('');
-      return `<div class="sauce-header">${DROP_SVG_INLINE}${esc(sauce.name)}</div>${subItems}`;
+      const subSauces = (sauce.sauces ?? []).map((ss) => `<div class="sauce-subsauce-item">${DROP_SVG_INLINE}${esc(ss.name)}</div>`).join('');
+      return `<div class="sauce-header">${DROP_SVG_INLINE}${esc(sauce.name)}</div>${subItems}${subSauces}`;
     }).join('');
     return direct + saucesHtml;
   };
@@ -230,7 +234,7 @@ function computeIngredientSplit(recipe: Recipe): { page1Html: string; page2Html:
 function splitSteps(recipe: Recipe): { page1Steps: Recipe['steps']; page2Steps: Recipe['steps'] } | null {
   const ingColHeight = 30
     + recipe.ingredients.length * 23
-    + recipe.sauces.reduce((sum, s) => sum + 25 + s.ingredients.length * 23, 0);
+    + recipe.sauces.reduce((sum, s) => sum + 25 + s.ingredients.length * 23 + (s.sauces ?? []).length * 22, 0);
   const sorted = [...recipe.steps].sort((a, b) => a.order_index - b.order_index);
   const AVAILABLE_HEIGHT = Math.max(150, 650 - Math.max(0, ingColHeight - 220));
   let height = 0;
@@ -848,6 +852,15 @@ function buildCookbookHTML(recipes: Recipe[], images: Record<string, string>, ic
       padding: 2px 0 2px 14px;
       border-bottom: 0.5px solid #f2f2f7;
       color: #636366;
+    }
+    .sauce-subsauce-item {
+      display: flex;
+      align-items: center;
+      padding: 3px 0 3px 14px;
+      border-bottom: 0.5px solid #f2f2f7;
+      font-size: 11px;
+      font-weight: 700;
+      color: rgba(255,149,0,0.65);
     }
     .steps-list { display: flex; flex-direction: column; gap: 10px; }
     .step-row { display: flex; gap: 12px; align-items: flex-start; }

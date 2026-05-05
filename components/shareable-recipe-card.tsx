@@ -96,9 +96,17 @@ export function ShareableRecipeCard({ recipe }: { recipe: Recipe }) {
               </Text>
             )}
             {recipe.sauces.map((sauce, i) => (
-              <View key={`sauce-${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <IconSymbol name="drop.fill" size={13} color="rgba(255,149,0,0.85)" />
-                <Text style={{ color: 'rgba(255,149,0,0.85)', fontSize: 14 }}>{sauce.name}</Text>
+              <View key={`sauce-${i}`}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <IconSymbol name="drop.fill" size={13} color="rgba(255,149,0,0.85)" />
+                  <Text style={{ color: 'rgba(255,149,0,0.85)', fontSize: 14 }}>{sauce.name}</Text>
+                </View>
+                {(sauce.sauces ?? []).map((ss, j) => (
+                  <View key={`subsauce-${j}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 18, marginTop: 2 }}>
+                    <IconSymbol name="drop.fill" size={10} color="rgba(255,149,0,0.55)" />
+                    <Text style={{ color: 'rgba(255,149,0,0.6)', fontSize: 12 }}>{ss.name}</Text>
+                  </View>
+                ))}
               </View>
             ))}
           </View>

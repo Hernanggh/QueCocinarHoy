@@ -1,10 +1,14 @@
 import type { Recipe, Event } from '@/types/app';
 
-function normalizeSauce(raw: any): Pick<Recipe, 'id' | 'name' | 'ingredients'> {
+function normalizeSauce(raw: any): Pick<Recipe, 'id' | 'name' | 'ingredients' | 'sauces'> {
   return {
     id: raw.id,
     name: raw.name,
     ingredients: (raw.ingredients ?? []).sort((a: any, b: any) => a.order_index - b.order_index),
+    sauces: (raw.recipe_sauces ?? [])
+      .map((rs: any) => rs.sauce)
+      .filter(Boolean)
+      .map((s: any) => ({ id: s.id, name: s.name, ingredients: [], sauces: [], variations: [] })) as Recipe[],
   };
 }
 

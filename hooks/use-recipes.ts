@@ -12,7 +12,7 @@ const RECIPE_SELECT = `
   recipe_methods ( method_id, cooking_methods ( id, name ) ),
   ingredients ( * ),
   steps ( * ),
-  recipe_sauces!recipe_id ( sauce_recipe_id, sauce:recipes!sauce_recipe_id ( id, name, ingredients(*) ) ),
+  recipe_sauces!recipe_id ( sauce_recipe_id, sauce:recipes!sauce_recipe_id ( id, name, ingredients(*), recipe_sauces!recipe_id ( sauce_recipe_id, sauce:recipes!sauce_recipe_id ( id, name ) ) ) ),
   variations:recipes!parent_recipe_id ( *, ingredients(*), steps(*) )
 `;
 

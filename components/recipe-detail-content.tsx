@@ -303,50 +303,81 @@ export function RecipeDetailContent({ recipe, onEdit, onDelete, onSaucePress, on
                   </Text>
                 </View>
               ))}
-              {recipe.sauces.map((sauce, idxSauce) => (
-                <View key={sauce.id}>
-                  <Pressable
-                    onPress={() => onSaucePress(sauce.id)}
-                    style={({ pressed }) => ({
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 10,
-                      padding: 14,
-                      borderBottomWidth: (sauce.ingredients.length > 0 || idxSauce < recipe.sauces.length - 1) ? 0.5 : 0,
-                      borderBottomColor: pc('separator'),
-                      opacity: pressed ? 0.7 : 1,
-                    })}
-                  >
-                    <IconSymbol name="drop.fill" size={15} color={pc('systemOrange')} />
-                    <Text style={{ fontSize: 16, color: pc('label'), flex: 1 }}>
-                      {sauce.name}
-                    </Text>
-                    <IconSymbol name="chevron.right" size={14} color={pc('systemOrange')} />
-                  </Pressable>
-                  {sauce.ingredients.map((ing, idxIng) => (
-                    <View
-                      key={ing.id}
-                      style={{
+              {recipe.sauces.map((sauce, idxSauce) => {
+                const subSauces = sauce.sauces ?? [];
+                const isLastSauce = idxSauce === recipe.sauces.length - 1;
+                return (
+                  <View key={sauce.id}>
+                    <Pressable
+                      onPress={() => onSaucePress(sauce.id)}
+                      style={({ pressed }) => ({
                         flexDirection: 'row',
-                        justifyContent: 'space-between',
-                        paddingVertical: 11,
-                        paddingLeft: 38,
-                        paddingRight: 14,
-                        borderBottomWidth: (idxSauce < recipe.sauces.length - 1 || idxIng < sauce.ingredients.length - 1) ? 0.5 : 0,
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: 14,
+                        borderBottomWidth: (sauce.ingredients.length > 0 || subSauces.length > 0 || !isLastSauce) ? 0.5 : 0,
                         borderBottomColor: pc('separator'),
-                        backgroundColor: pc('tertiarySystemBackground'),
-                      }}
+                        opacity: pressed ? 0.7 : 1,
+                      })}
                     >
-                      <Text selectable style={{ fontSize: 15, color: pc('secondaryLabel'), flex: 1 }}>
-                        {ing.name}
+                      <IconSymbol name="drop.fill" size={15} color={pc('systemOrange')} />
+                      <Text style={{ fontSize: 16, color: pc('label'), flex: 1 }}>
+                        {sauce.name}
                       </Text>
-                      <Text selectable style={{ fontSize: 15, color: pc('secondaryLabel'), fontVariant: ['tabular-nums'] }}>
-                        {scaleQty(ing.quantity)} {ing.unit}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              ))}
+                      <IconSymbol name="chevron.right" size={14} color={pc('systemOrange')} />
+                    </Pressable>
+                    {sauce.ingredients.map((ing, idxIng) => {
+                      const isLastIng = idxIng === sauce.ingredients.length - 1;
+                      return (
+                        <View
+                          key={ing.id}
+                          style={{
+                            flexDirection: 'row',
+                            justifyContent: 'space-between',
+                            paddingVertical: 11,
+                            paddingLeft: 38,
+                            paddingRight: 14,
+                            borderBottomWidth: (!isLastIng || subSauces.length > 0 || !isLastSauce) ? 0.5 : 0,
+                            borderBottomColor: pc('separator'),
+                            backgroundColor: pc('tertiarySystemBackground'),
+                          }}
+                        >
+                          <Text selectable style={{ fontSize: 15, color: pc('secondaryLabel'), flex: 1 }}>
+                            {ing.name}
+                          </Text>
+                          <Text selectable style={{ fontSize: 15, color: pc('secondaryLabel'), fontVariant: ['tabular-nums'] }}>
+                            {scaleQty(ing.quantity)} {ing.unit}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                    {subSauces.map((subSauce, idxSub) => {
+                      const isLastSub = idxSub === subSauces.length - 1;
+                      return (
+                        <View
+                          key={subSauce.id}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 8,
+                            paddingVertical: 10,
+                            paddingLeft: 54,
+                            paddingRight: 14,
+                            borderBottomWidth: (!isLastSub || !isLastSauce) ? 0.5 : 0,
+                            borderBottomColor: pc('separator'),
+                            backgroundColor: pc('tertiarySystemBackground'),
+                          }}
+                        >
+                          <IconSymbol name="drop.fill" size={12} color={pc('systemOrange')} />
+                          <Text style={{ fontSize: 14, color: pc('systemOrange'), flex: 1, opacity: 0.75 }}>
+                            {subSauce.name}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                );
+              })}
             </View>
           </View>
         )}
