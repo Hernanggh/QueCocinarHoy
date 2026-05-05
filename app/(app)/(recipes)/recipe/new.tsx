@@ -11,15 +11,13 @@ import {
   Platform,
 } from 'react-native';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
-import * as ImageManipulator from 'expo-image-manipulator';
-import * as FileSystem from 'expo-file-system/legacy';
 import { Image } from 'expo-image';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/auth';
 import { useLookupData } from '@/hooks/use-lookup-data';
 import { useRecipes } from '@/hooks/use-recipes';
-import { uploadPhoto, deletePhoto, getPublicUrl, PHOTO_BUCKET } from '@/lib/storage';
+import { usePhotoPicker } from '@/hooks/use-photo-picker';
+import { getPublicUrl } from '@/lib/storage';
+import { saveRecipe } from '@/lib/recipe-save';
 import { IngredientRow, type IngredientDraft } from '@/components/ingredient-row';
 import { StepRow, type StepDraft } from '@/components/step-row';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -38,6 +36,14 @@ export default function RecipeFormScreen() {
   const { user } = useAuth();
   const { categories, methods } = useLookupData();
   const { recipes } = useRecipes();
+  const {
+    photoUri,
+    setPhotoUri,
+    existingPhotoPath,
+    setExistingPhotoPath,
+    pickPhoto,
+    removePhoto,
+  } = usePhotoPicker(recipeId);
 
   // Form state
   const [name, setName] = useState('');
@@ -57,8 +63,6 @@ export default function RecipeFormScreen() {
     { id: uid(), name: '', quantity: '', unit: '' },
   ]);
   const [steps, setSteps] = useState<StepDraft[]>([{ id: uid(), description: '' }]);
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
-  const [existingPhotoPath, setExistingPhotoPath] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [origIngredientIds, setOrigIngredientIds] = useState<string[]>([]);
   const [origStepIds, setOrigStepIds] = useState<string[]>([]);
@@ -109,7 +113,7 @@ export default function RecipeFormScreen() {
       setSteps(recipe.steps.map((s) => ({ id: s.id, description: s.description })));
       setOrigStepIds(recipe.steps.map((s) => s.id));
     }
-  }, [isEdit, recipeId, recipes]);
+  }, [isEdit, recipeId, recipes, setExistingPhotoPath, setPhotoUri]);
 
   const toggleCategory = (id: number) => {
     setSelectedCategories((prev) =>
@@ -129,114 +133,6 @@ export default function RecipeFormScreen() {
     );
   };
 
-  const convertHeicToJpeg = async (uri: string): Promise<string | null> => {
-    // Approach 1: Canvas — Safari decodes HEIC natively via macOS
-    try {
-      return await new Promise<string>((resolve, reject) => {
-        const img = new window.Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = img.naturalWidth;
-          canvas.height = img.naturalHeight;
-          canvas.getContext('2d')!.drawImage(img, 0, 0);
-          resolve(canvas.toDataURL('image/jpeg', 0.9));
-        };
-        img.onerror = reject;
-        img.src = uri;
-      });
-    } catch {}
-
-    // Approach 2: WebCodecs ImageDecoder — Chrome ≥105 on macOS uses system HEIC codec
-    try {
-      const ID = (window as any).ImageDecoder;
-      if (ID && await ID.isTypeSupported('image/heic')) {
-        const res = await fetch(uri);
-        const buffer = await res.arrayBuffer();
-        const decoder = new ID({ data: buffer, type: 'image/heic' });
-        const { image } = await decoder.decode();
-        const canvas = document.createElement('canvas');
-        canvas.width = image.displayWidth;
-        canvas.height = image.displayHeight;
-        canvas.getContext('2d')!.drawImage(image, 0, 0);
-        image.close();
-        return canvas.toDataURL('image/jpeg', 0.9);
-      }
-    } catch {}
-
-    // Approach 3: libheif-js wasm-bundle — libheif 1.19 supports iPhone HEVC
-    try {
-      const libheif = (await import('libheif-js/wasm-bundle')).default;
-      const res = await fetch(uri);
-      const buffer = await res.arrayBuffer();
-      const decoder = new libheif.HeifDecoder();
-      const data = decoder.decode(new Uint8Array(buffer));
-      const image = data[0];
-      const width = image.get_width();
-      const height = image.get_height();
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d')!;
-      const imageData = ctx.createImageData(width, height);
-      await new Promise<void>((resolve, reject) => {
-        image.display(imageData, (displayData: any) => {
-          if (!displayData) { reject(new Error('decode failed')); return; }
-          ctx.putImageData(imageData, 0, 0);
-          resolve();
-        });
-      });
-      return canvas.toDataURL('image/jpeg', 0.9);
-    } catch {}
-
-    alert(
-      'No se pudo convertir la foto HEIC.\n\n' +
-      'Opciones:\n' +
-      '• Usa Safari (soporta HEIC de forma nativa)\n' +
-      '• Abre la foto en Preview → Archivo → Exportar → elige JPEG'
-    );
-    return null;
-  };
-
-  const pickPhoto = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
-    if (!result.canceled) {
-      let uri = result.assets[0].uri;
-
-      // Web: browsers may not decode HEIC — convert to JPEG first
-      if (Platform.OS === 'web') {
-        const mime = result.assets[0].mimeType ?? '';
-        const name = result.assets[0].fileName ?? '';
-        const isHeic = mime === 'image/heic' || mime === 'image/heif'
-          || /\.(heic|heif)$/i.test(name);
-        if (isHeic) {
-          uri = await convertHeicToJpeg(uri);
-          if (!uri) return;
-        }
-      }
-
-      const processed = await ImageManipulator.manipulateAsync(
-        uri,
-        [{ resize: { width: 1200 } }],
-        { compress: 0.82, format: ImageManipulator.SaveFormat.JPEG }
-      );
-      setPhotoUri(processed.uri);
-    }
-  };
-
-  const removePhoto = async () => {
-    setPhotoUri(null);
-    if (existingPhotoPath) {
-      await deletePhoto(existingPhotoPath);
-      await supabase.from('recipes').update({ photo_url: null }).eq('id', recipeId!);
-      setExistingPhotoPath(null);
-    }
-  };
-
   const handleSave = async () => {
     if (!name.trim()) {
       Alert.alert('Falta el nombre', 'Agrega un nombre a la receta');
@@ -245,227 +141,37 @@ export default function RecipeFormScreen() {
     if (!user) return;
     setSaving(true);
     try {
-      const recipeData = {
-        user_id: user.id,
-        name: name.trim(),
-        description: description.trim() || null,
+      const result = await saveRecipe({
+        user,
+        recipeId,
+        isEdit,
+        name,
+        description,
         difficulty,
-        base_servings: parseInt(baseServings) || 4,
-        prep_time_min: parseInt(prepTime) || 0,
-        cook_time_min: parseInt(cookTime) || 0,
-        notes: notes.trim() || null,
-        reference_url: referenceUrl.trim() || null,
-        parent_recipe_id: parentId ?? null,
-      };
-
-      let finalRecipeId = recipeId ?? '';
-
-      if (isEdit && recipeId) {
-        const { error: updateError } = await supabase
-          .from('recipes')
-          .update(recipeData)
-          .eq('id', recipeId);
-        if (updateError) throw updateError;
-      } else {
-        const { data, error } = await supabase
-          .from('recipes')
-          .insert(recipeData)
-          .select('id')
-          .single();
-        if (error) throw error;
-        finalRecipeId = data.id;
+        baseServings,
+        prepTime,
+        cookTime,
+        notes,
+        referenceUrl,
+        parentId,
+        selectedCategories,
+        selectedMethods,
+        selectedSauceIds,
+        ingredients,
+        steps,
+        origIngredientIds,
+        origStepIds,
+        photoUri,
+        existingPhotoPath,
+      });
+      if (!result.ok) {
+        Alert.alert('Error', result.error);
+        return;
       }
-
-      // Upload photo if new one selected
-      if (photoUri && !photoUri.startsWith('https://')) {
-        try {
-          let savedPath: string | null = null;
-
-          if (Platform.OS === 'web') {
-            // Web: fetch funciona correctamente con blob:/data: URLs del browser
-            const response = await fetch(photoUri);
-            const arrayBuffer = await response.arrayBuffer();
-            savedPath = await uploadPhoto(user.id, finalRecipeId, arrayBuffer);
-          } else {
-            // iOS/Android: leer archivo como base64 (nativo) → Uint8Array → fetch HTTPS
-            // Evita el polyfill de fetch con file:// y el enum FileSystemUploadType
-            const base64 = await FileSystem.readAsStringAsync(photoUri, {
-              encoding: 'base64' as any,
-            });
-            const binary = atob(base64);
-            const bytes = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) throw new Error('Sesión expirada');
-
-            const storagePath = `${user.id}/${finalRecipeId}-${Date.now()}.jpg`;
-            const res = await fetch(
-              `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/${PHOTO_BUCKET}/${storagePath}`,
-              {
-                method: 'POST',
-                headers: {
-                  Authorization: `Bearer ${session.access_token}`,
-                  'Content-Type': 'image/jpeg',
-                },
-                body: bytes,
-              }
-            );
-            if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
-            savedPath = storagePath;
-          }
-
-          if (savedPath) {
-            await supabase.from('recipes').update({ photo_url: savedPath }).eq('id', finalRecipeId);
-            // Borrar foto vieja DESPUÉS de confirmar la nueva en DB
-            // (evita que el cache offline quede con un path apuntando a un archivo borrado)
-            if (existingPhotoPath) await deletePhoto(existingPhotoPath);
-          } else {
-            Alert.alert('Error con la foto', 'La receta se guardó pero la foto no pudo subirse.');
-          }
-        } catch (photoErr: any) {
-          Alert.alert('Error con la foto', `La receta se guardó. Foto: ${photoErr.message}`);
-        }
+      if (result.photoError) {
+        Alert.alert('Error con la foto', result.photoError);
       }
-
-      const validIngredients = ingredients.filter(
-        (i) => i.name.trim() && i.quantity.trim() && i.unit.trim()
-      );
-      const validSteps = steps.filter((s) => s.description.trim());
-
-      if (isEdit) {
-        // Join tables: upsert selected (insert+ignore conflicts), delete deselected
-        if (selectedCategories.length > 0) {
-          await supabase.from('recipe_categories').upsert(
-            selectedCategories.map((category_id) => ({ recipe_id: finalRecipeId, category_id })),
-            { onConflict: 'recipe_id,category_id', ignoreDuplicates: true }
-          );
-          await supabase.from('recipe_categories').delete().eq('recipe_id', finalRecipeId)
-            .not('category_id', 'in', `(${selectedCategories.join(',')})`);
-        } else {
-          await supabase.from('recipe_categories').delete().eq('recipe_id', finalRecipeId);
-        }
-        if (selectedMethods.length > 0) {
-          await supabase.from('recipe_methods').upsert(
-            selectedMethods.map((method_id) => ({ recipe_id: finalRecipeId, method_id })),
-            { onConflict: 'recipe_id,method_id', ignoreDuplicates: true }
-          );
-          await supabase.from('recipe_methods').delete().eq('recipe_id', finalRecipeId)
-            .not('method_id', 'in', `(${selectedMethods.join(',')})`);
-        } else {
-          await supabase.from('recipe_methods').delete().eq('recipe_id', finalRecipeId);
-        }
-        if (selectedSauceIds.length > 0) {
-          await supabase.from('recipe_sauces').upsert(
-            selectedSauceIds.map((sauce_recipe_id) => ({ recipe_id: finalRecipeId, sauce_recipe_id })),
-            { onConflict: 'recipe_id,sauce_recipe_id', ignoreDuplicates: true }
-          );
-          await supabase.from('recipe_sauces').delete().eq('recipe_id', finalRecipeId)
-            .not('sauce_recipe_id', 'in', `(${selectedSauceIds.join(',')})`);
-        } else {
-          await supabase.from('recipe_sauces').delete().eq('recipe_id', finalRecipeId);
-        }
-
-        // Content tables: upsert existing, insert new, delete removed — in that order
-        const keptIngIds = validIngredients.filter((i) => !i.id.startsWith('local_')).map((i) => i.id);
-        const upsertIngs = validIngredients.filter((i) => !i.id.startsWith('local_'));
-        const insertIngs = validIngredients.filter((i) => i.id.startsWith('local_'));
-        if (upsertIngs.length > 0) {
-          await supabase.from('ingredients').upsert(
-            upsertIngs.map((ing) => ({
-              id: ing.id,
-              recipe_id: finalRecipeId,
-              name: ing.name.trim(),
-              quantity: parseFloat(ing.quantity) || 0,
-              unit: ing.unit.trim(),
-              order_index: validIngredients.findIndex((x) => x.id === ing.id),
-            }))
-          );
-        }
-        if (insertIngs.length > 0) {
-          await supabase.from('ingredients').insert(
-            insertIngs.map((ing) => ({
-              recipe_id: finalRecipeId,
-              name: ing.name.trim(),
-              quantity: parseFloat(ing.quantity) || 0,
-              unit: ing.unit.trim(),
-              order_index: validIngredients.findIndex((x) => x.id === ing.id),
-            }))
-          );
-        }
-        const removedIngIds = origIngredientIds.filter((id) => !keptIngIds.includes(id));
-        if (removedIngIds.length > 0) {
-          await supabase.from('ingredients').delete().in('id', removedIngIds);
-        }
-
-        const keptStepIds = validSteps.filter((s) => !s.id.startsWith('local_')).map((s) => s.id);
-        const upsertSteps = validSteps.filter((s) => !s.id.startsWith('local_'));
-        const insertSteps = validSteps.filter((s) => s.id.startsWith('local_'));
-        if (upsertSteps.length > 0) {
-          await supabase.from('steps').upsert(
-            upsertSteps.map((step) => ({
-              id: step.id,
-              recipe_id: finalRecipeId,
-              description: step.description.trim(),
-              order_index: validSteps.findIndex((x) => x.id === step.id),
-            }))
-          );
-        }
-        if (insertSteps.length > 0) {
-          await supabase.from('steps').insert(
-            insertSteps.map((step) => ({
-              recipe_id: finalRecipeId,
-              description: step.description.trim(),
-              order_index: validSteps.findIndex((x) => x.id === step.id),
-            }))
-          );
-        }
-        const removedStepIds = origStepIds.filter((id) => !keptStepIds.includes(id));
-        if (removedStepIds.length > 0) {
-          await supabase.from('steps').delete().in('id', removedStepIds);
-        }
-      } else {
-        // Create mode: simple inserts
-        if (selectedCategories.length > 0) {
-          await supabase.from('recipe_categories').insert(
-            selectedCategories.map((category_id) => ({ recipe_id: finalRecipeId, category_id }))
-          );
-        }
-        if (selectedMethods.length > 0) {
-          await supabase.from('recipe_methods').insert(
-            selectedMethods.map((method_id) => ({ recipe_id: finalRecipeId, method_id }))
-          );
-        }
-        if (selectedSauceIds.length > 0) {
-          await supabase.from('recipe_sauces').insert(
-            selectedSauceIds.map((sauce_recipe_id) => ({ recipe_id: finalRecipeId, sauce_recipe_id }))
-          );
-        }
-        if (validIngredients.length > 0) {
-          await supabase.from('ingredients').insert(
-            validIngredients.map((ing, idx) => ({
-              recipe_id: finalRecipeId,
-              name: ing.name.trim(),
-              quantity: parseFloat(ing.quantity) || 0,
-              unit: ing.unit.trim(),
-              order_index: idx,
-            }))
-          );
-        }
-        if (validSteps.length > 0) {
-          await supabase.from('steps').insert(
-            validSteps.map((step, idx) => ({
-              recipe_id: finalRecipeId,
-              description: step.description.trim(),
-              order_index: idx,
-            }))
-          );
-        }
-      }
-
       router.back();
-    } catch (e: any) {
-      Alert.alert('Error', e.message ?? 'No se pudo guardar la receta');
     } finally {
       setSaving(false);
     }
