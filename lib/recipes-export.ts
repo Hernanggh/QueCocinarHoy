@@ -979,10 +979,23 @@ function buildCookbookHTML(recipes: Recipe[], images: Record<string, string>, ic
 
 // ─── Public API ──────────────────────────────────────────────────────────────
 
-export async function exportRecipesAsPDF(recipes: Recipe[], iconUri?: string): Promise<void> {
+export type ExportProgressCallback = (
+  phase: 'images' | 'pages' | 'done',
+  completed: number,
+  total: number,
+) => void;
+
+export async function exportRecipesAsPDF(
+  recipes: Recipe[],
+  iconUri?: string,
+  onProgress?: ExportProgressCallback,
+): Promise<void> {
   // Fetch all photos (base recipes + variations) + app icon
   const allRecipes = recipes.flatMap((r) => [r, ...(r.variations ?? [])]);
   const images: Record<string, string> = {};
+  const imageTotal = allRecipes.length;
+  onProgress?.('images', 0, imageTotal);
+  let imagesCompleted = 0;
   await Promise.all(
     allRecipes.map(async (recipe) => {
       const url = getPublicUrl(recipe.photo_url ?? null);
@@ -990,6 +1003,8 @@ export async function exportRecipesAsPDF(recipes: Recipe[], iconUri?: string): P
         const b64 = await fetchImageAsBase64(url);
         if (b64) images[recipe.id] = b64;
       }
+      imagesCompleted += 1;
+      onProgress?.('images', imagesCompleted, imageTotal);
     })
   );
 
@@ -1055,6 +1070,9 @@ export async function exportRecipesAsPDF(recipes: Recipe[], iconUri?: string): P
     ) as HTMLElement[];
 
     const jpegs: Uint8Array[] = [];
+    const pageTotal = pages.length;
+    onProgress?.('pages', 0, pageTotal);
+    let pagesCompleted = 0;
     for (const pageEl of pages) {
       pageEl.style.cssText += ';width:794px;min-height:unset;height:1123px;overflow:hidden;';
       const canvas = await html2canvas(pageEl, {
@@ -1069,6 +1087,8 @@ export async function exportRecipesAsPDF(recipes: Recipe[], iconUri?: string): P
       });
       const b64 = canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
       jpegs.push(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)));
+      pagesCompleted += 1;
+      onProgress?.('pages', pagesCompleted, pageTotal);
     }
 
     document.body.removeChild(iframe);
@@ -1088,6 +1108,7 @@ export async function exportRecipesAsPDF(recipes: Recipe[], iconUri?: string): P
 
   const html = buildCookbookHTML(recipes, images, iconBase64, iconUri);
   const { uri } = await Print.printToFileAsync({ html, width: 595, height: 842 });
+  onProgress?.('done', 1, 1);
   const canShare = await Sharing.isAvailableAsync();
   if (canShare) {
     await Sharing.shareAsync(uri, {

@@ -29,8 +29,14 @@ import { OfflineBanner } from '@/components/offline-banner';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { AddToEventSheet } from '@/components/add-to-event-sheet';
 import { Asset } from 'expo-asset';
-import { exportRecipesAsPDF, exportRecipesAsJSON } from '@/lib/recipes-export';
+import { exportRecipesAsPDF, exportRecipesAsJSON, type ExportProgressCallback } from '@/lib/recipes-export';
 import type { Recipe } from '@/types/app';
+
+type ExportProgress = {
+  phase: 'images' | 'pages' | 'done';
+  completed: number;
+  total: number;
+};
 
 const SHOW_JSON_EXPORT = false;
 
@@ -139,6 +145,16 @@ function SearchBar({ value, onChange }: { value: string; onChange: (t: string) =
   );
 }
 
+function ProgressBar({ completed, total }: { completed: number; total: number }) {
+  if (total === 0) return null;
+  const pct = Math.min(1, completed / total);
+  return (
+    <View style={{ height: 6, backgroundColor: '#FF950030', borderRadius: 3, overflow: 'hidden' }}>
+      <View style={{ height: '100%', width: `${Math.round(pct * 100)}%` as any, backgroundColor: '#FF9500', borderRadius: 3 }} />
+    </View>
+  );
+}
+
 export default function RecipesScreen() {
   const router = useRouter();
   const { signOut } = useAuth();
@@ -184,6 +200,28 @@ export default function RecipesScreen() {
   const [searchText, setSearchText] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [exportProgress, setExportProgress] = useState<ExportProgress | null>(null);
+
+  const handleExportPDF = async () => {
+    if (recipes.length === 0 || pdfLoading) return;
+    setPdfLoading(true);
+    setExportProgress({ phase: 'images', completed: 0, total: 0 });
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const asset = Asset.fromModule(require('../../../assets/images/icon.png'));
+      await asset.downloadAsync();
+      const iconUri = asset.localUri ?? asset.uri ?? undefined;
+      await exportRecipesAsPDF(recipes, iconUri || undefined, (phase, completed, total) => {
+        setExportProgress({ phase, completed, total });
+      });
+    } catch {
+      if (Platform.OS === 'web') window.alert('No se pudo generar el PDF. Intenta de nuevo.');
+      else Alert.alert('Error', 'No se pudo generar el PDF. Intenta de nuevo.');
+    } finally {
+      setPdfLoading(false);
+      setExportProgress(null);
+    }
+  };
 
   const activeFilterCount = (selectedCategory ? 1 : 0) + (selectedMethod ? 1 : 0);
   const activeLabel = [
@@ -330,22 +368,7 @@ export default function RecipesScreen() {
                 Cookbook
               </Text>
               <Pressable
-                onPress={async () => {
-                  if (recipes.length === 0 || pdfLoading) return;
-                  setPdfLoading(true);
-                  try {
-                    // eslint-disable-next-line @typescript-eslint/no-require-imports
-                    const asset = Asset.fromModule(require('../../../assets/images/icon.png'));
-                    await asset.downloadAsync();
-                    const iconUri = asset.localUri ?? asset.uri ?? undefined;
-                    await exportRecipesAsPDF(recipes, iconUri || undefined);
-                  } catch {
-                    if (Platform.OS === 'web') window.alert('No se pudo generar el PDF. Intenta de nuevo.');
-                    else Alert.alert('Error', 'No se pudo generar el PDF. Intenta de nuevo.');
-                  } finally {
-                    setPdfLoading(false);
-                  }
-                }}
+                onPress={handleExportPDF}
                 style={({ pressed }) => ({
                   flexDirection: 'row',
                   alignItems: 'center',
@@ -420,22 +443,7 @@ export default function RecipesScreen() {
                     </Text>
                   </Pressable>
                   <Pressable
-                    onPress={async () => {
-                      if (recipes.length === 0 || pdfLoading) return;
-                      setPdfLoading(true);
-                      try {
-                        // eslint-disable-next-line @typescript-eslint/no-require-imports
-                        const asset = Asset.fromModule(require('../../../assets/images/icon.png'));
-                        await asset.downloadAsync();
-                        const iconUri = asset.localUri ?? asset.uri ?? undefined;
-                        await exportRecipesAsPDF(recipes, iconUri || undefined);
-                      } catch {
-                        if (Platform.OS === 'web') window.alert('No se pudo generar el PDF. Intenta de nuevo.');
-                        else Alert.alert('Error', 'No se pudo generar el PDF. Intenta de nuevo.');
-                      } finally {
-                        setPdfLoading(false);
-                      }
-                    }}
+                    onPress={handleExportPDF}
                     style={({ pressed }) => ({
                       flexDirection: 'row',
                       alignItems: 'center',
@@ -765,6 +773,48 @@ export default function RecipesScreen() {
               </View>
             )}
           </Pressable>
+        </View>
+      )}
+
+      {/* PDF Export Progress Overlay */}
+      {exportProgress && (
+        <View
+          style={{
+            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+            justifyContent: 'center', alignItems: 'center', zIndex: 300,
+          }}
+        >
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.55)' }} />
+          <View
+            style={{
+              width: 280,
+              backgroundColor: pc('systemBackground'),
+              borderRadius: 20,
+              padding: 24,
+              gap: 16,
+              alignItems: 'center',
+              zIndex: 1,
+              ...(Platform.OS === 'web'
+                ? { boxShadow: '0 8px 40px rgba(0,0,0,0.22)' }
+                : { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.22, shadowRadius: 20, elevation: 12 }
+              ),
+            } as any}
+          >
+            <ActivityIndicator size="large" color="#FF9500" />
+            <Text style={{ fontSize: 16, fontWeight: '700', color: pc('label'), textAlign: 'center' }}>
+              {exportProgress.phase === 'images' ? 'Descargando imágenes…'
+                : exportProgress.phase === 'pages' ? 'Generando páginas…'
+                : 'Finalizando…'}
+            </Text>
+            <View style={{ width: '100%', gap: 6 }}>
+              <ProgressBar completed={exportProgress.completed} total={exportProgress.total} />
+              {exportProgress.total > 0 && (
+                <Text style={{ fontSize: 12, color: pc('secondaryLabel'), textAlign: 'center' }}>
+                  {exportProgress.completed} / {exportProgress.total}
+                </Text>
+              )}
+            </View>
+          </View>
         </View>
       )}
     </>
