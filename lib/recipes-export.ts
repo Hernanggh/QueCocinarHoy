@@ -114,45 +114,99 @@ function priorityCat(recipe: Recipe): string {
   return recipe.categories[0].name;
 }
 
-function buildIndex(recipes: Recipe[]): string {
-  // Agrupar por categoría de mayor prioridad
+// Height budget constants (in CSS px = pt in print context at 72dpi/expo-print).
+// A4 content area (297mm - 2×12mm margins) = 273mm ≈ 774pt.
+// index-container padding: 40pt top + 44pt bottom = 84pt → 690pt inner.
+// First page: minus title block (~70pt) → 620pt for entries.
+const IDX_BUDGET_FIRST = 620;
+const IDX_BUDGET_REST  = 690;
+const IDX_CAT_H        = 42;   // category label (22px) + index-section margin-bottom (20px)
+const IDX_ROW_H        = 23;   // one index row
+
+type IndexChunk = { cat: string; items: Recipe[]; showCatHeader: boolean };
+
+function buildIndexPages(recipes: Recipe[]): { html: string; numPages: number; recipeStartPage: number } {
   const groups = new Map<string, Recipe[]>();
   for (const r of recipes) {
     const cat = priorityCat(r);
     if (!groups.has(cat)) groups.set(cat, []);
     groups.get(cat)!.push(r);
   }
-
-  // Ordenar secciones según CATEGORY_ORDER; categorías desconocidas al final
   const orderedKeys = [
     ...CATEGORY_ORDER.filter((c) => groups.has(c)),
     ...[...groups.keys()].filter((k) => !CATEGORY_ORDER.includes(k)),
   ];
 
-  let pageNum = 3; // portada=1, índice=2, recetas desde 3
-  const sections: string[] = [];
+  // ── Phase 1: layout chunks into pages ────────────────────────────────────
+  const pages: IndexChunk[][] = [[]];
+  let budget = IDX_BUDGET_FIRST;
+
+  const pushChunk = (chunk: IndexChunk, h: number) => {
+    pages[pages.length - 1].push(chunk);
+    budget -= h;
+  };
+  const nextPage = () => { pages.push([]); budget = IDX_BUDGET_REST; };
 
   for (const cat of orderedKeys) {
     const catRecipes = groups.get(cat)!;
-    const rows = catRecipes.map((r) => {
-      const row = `
+    const fullH = IDX_CAT_H + catRecipes.length * IDX_ROW_H;
+
+    if (fullH <= budget) {
+      pushChunk({ cat, items: catRecipes, showCatHeader: true }, fullH);
+    } else if (fullH <= IDX_BUDGET_REST) {
+      nextPage();
+      pushChunk({ cat, items: catRecipes, showCatHeader: true }, fullH);
+    } else {
+      // Section too large for one page — split rows across pages
+      let rowStart = 0;
+      let isFirst = true;
+      while (rowStart < catRecipes.length) {
+        const headerH = isFirst ? IDX_CAT_H : 0;
+        const rowsFit = Math.floor((budget - headerH) / IDX_ROW_H);
+        if (rowsFit <= 0) { nextPage(); continue; }
+        const slice = catRecipes.slice(rowStart, rowStart + rowsFit);
+        pushChunk({ cat, items: slice, showCatHeader: isFirst }, headerH + slice.length * IDX_ROW_H);
+        rowStart += slice.length;
+        isFirst = false;
+        if (rowStart < catRecipes.length) nextPage();
+      }
+    }
+  }
+
+  // ── Phase 2: assign recipe page numbers ───────────────────────────────────
+  const recipeStart = 2 + pages.length;
+  let rp = recipeStart;
+  const pageNums = new Map<string, number>();
+  for (const cat of orderedKeys) {
+    for (const r of groups.get(cat)!) {
+      pageNums.set(r.id, rp);
+      rp += pagesForRecipe(r) + (r.variations?.reduce((sum, v) => sum + pagesForRecipe(v), 0) ?? 0);
+    }
+  }
+
+  // ── Phase 3: render HTML ──────────────────────────────────────────────────
+  const pageHtmls = pages.map((chunks, i) => {
+    const pageNumber = 2 + i;
+    const titleBlock = i === 0 ? `<div class="index-title">Índice</div>` : '';
+    const sectionsHtml = chunks.map((chunk) => {
+      const catLabel = chunk.showCatHeader ? `<div class="index-cat">${esc(chunk.cat)}</div>` : '';
+      const rowsHtml = chunk.items.map((r) => `
         <div class="index-row">
           <span class="index-name">${esc(r.name)}</span>
           <span class="index-dots"></span>
-          <span class="index-page">${pageNum}</span>
-        </div>`;
-      pageNum += pagesForRecipe(r) + (r.variations?.reduce((sum, v) => sum + pagesForRecipe(v), 0) ?? 0);
-      return row;
+          <span class="index-page">${pageNums.get(r.id)}</span>
+        </div>`).join('');
+      return `<div class="index-section">${catLabel}${rowsHtml}</div>`;
     }).join('');
+    return `
+    <div class="index-container">
+      ${titleBlock}
+      ${sectionsHtml}
+      <div class="page-footer">${pageNumber}</div>
+    </div>`;
+  });
 
-    sections.push(`
-      <div class="index-section">
-        <div class="index-cat">${esc(cat)}</div>
-        ${rows}
-      </div>`);
-  }
-
-  return sections.join('');
+  return { html: pageHtmls.join('\n'), numPages: pages.length, recipeStartPage: recipeStart };
 }
 
 // ─── Ingredients HTML (direct + sauces with sub-ingredients) ────────────────
@@ -580,16 +634,11 @@ function buildCookbookHTML(recipes: Recipe[], images: Record<string, string>, ic
     <div class="cover-stripe-bottom"></div>
   </div>`;
 
-  // Índice
-  const indexHTML = `
-  <div class="index-container">
-    <div class="index-title">Índice</div>
-    ${buildIndex(sorted)}
-    <div class="page-footer">2</div>
-  </div>`;
+  // Índice (puede ocupar varias páginas)
+  const { html: indexHTML, recipeStartPage } = buildIndexPages(sorted);
 
   // Páginas de recetas
-  let pageNum = 3;
+  let pageNum = recipeStartPage;
   const recipePages = flat.map(({ recipe, parentName }) => {
     const page = buildRecipePage(recipe, parentName, images[recipe.id] ?? null, pageNum);
 
